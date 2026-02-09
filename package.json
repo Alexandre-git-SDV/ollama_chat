@@ -1,18 +1,14 @@
 {
-  "name": "ollama_chat",
+  "name": "ollama-chat-app",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Application de chat locale avec Ollama",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "node --watch server.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
-    "body-parser": "^2.2.2",
-    "express": "^5.2.1"
+    "express": "^4.22.1",
+    "uuid": "^9.0.1"
   }
 }

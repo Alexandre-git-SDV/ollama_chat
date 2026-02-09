@@ -1,26 +1,64 @@
+/**
+ * ============================================
+ *  OLLAMA CHAT APP — Serveur Principal
+ * ============================================
+ *  Point d'entrée Express.
+ *  - Sert les fichiers statiques (public/)
+ *  - Monte les routes API (/api/models, /api/chat)
+ *  - Proxy de streaming vers Ollama
+ * ============================================
+ */
+
 const express = require('express');
-const bodyParser = require('body-parser');
-const { exec } = require('child_process');
+const path    = require('path');
+const fs      = require('fs');
 
-const app = express();
-const PORT = 3000;
+// ── Routes ──────────────────────────────────
+const chatRoutes   = require('./routes/chat');
+const modelsRoutes = require('./routes/models');
 
-app.use(bodyParser.json());
+const app  = express();
+const PORT = process.env.PORT || 3000;
 
-// Sert index.html, CSS, JS, etc.
-app.use(express.static('.'));
+// ── Créer le dossier conversations s'il manque ─
+const convDir = path.join(__dirname, 'conversations');
+if (!fs.existsSync(convDir)) {
+  fs.mkdirSync(convDir, { recursive: true });
+}
 
-// Route pour le chat
-app.post('/chat', (req, res) => {
-  const userMessage = req.body.message;
+// ── Middlewares ──────────────────────────────
+app.use(express.json({ limit: '5mb' }));
+app.use(express.static(path.join(__dirname, 'public')));
 
-  exec(`ollama run gpt-oss:20b "${userMessage}"`, (error, stdout, stderr) => {
-    if (error) {
-      console.error(error);
-      return res.json({ reply: "Erreur lors de l'appel à Ollama." });
+// ── Montage des routes API ──────────────────
+app.use('/api/models', modelsRoutes);
+app.use('/api/chat',   chatRoutes);
+
+// ── Route de santé ──────────────────────────
+app.get('/api/health', async (_req, res) => {
+  try {
+    const resp = await fetch('http://localhost:11434/api/tags');
+    if (resp.ok) {
+      return res.json({ status: 'ok', ollama: true });
     }
-    res.json({ reply: stdout.trim() });
-  });
+    throw new Error('Ollama non joignable');
+  } catch {
+    res.json({ status: 'ok', ollama: false });
+  }
 });
 
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+// ── Fallback SPA ────────────────────────────
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// ── Démarrage ───────────────────────────────
+app.listen(PORT, () => {
+  console.log('');
+  console.log('  ╔══════════════════════════════════════╗');
+  console.log('  ║   🤖  Ollama Chat App démarrée      ║');
+  console.log(`  ║   🌐  http://localhost:${PORT}          ║`);
+  console.log('  ║   📡  Ollama: http://localhost:11434 ║');
+  console.log('  ╚══════════════════════════════════════╝');
+  console.log('');
+});
