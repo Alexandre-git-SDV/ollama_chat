@@ -2,15 +2,13 @@
  * ============================================
  *  ROUTES — Modèles Ollama
  * ============================================
- *  Utilise le client officiel ollama-js :
+ *  Endpoints Ollama réels :
  *
- *  ollama.list()   → GET /api/tags  → Liste des modèles installés
- *  ollama.ps()     → GET /api/ps    → Modèles actuellement chargés
- *  ollama.show()   → POST /api/show → Détails d'un modèle
+ *  GET  http://localhost:11434/api/version  → Version d'Ollama
+ *  GET  http://localhost:11434/api/tags     → Liste des modèles installés
+ *  GET  http://localhost:11434/api/ps       → Modèles actuellement chargés
+ *  POST http://localhost:11434/api/generate → Activer / Désactiver un modèle
  *
- *  Ref: https://github.com/ollama/ollama-js
- *  Ref: https://docs.ollama.com/api/list-local-models
- *  Ref: https://docs.ollama.com/api/list-running-models
  * ============================================
  */
 
@@ -18,35 +16,39 @@ const express = require('express');
 const router  = express.Router();
 
 /**
- * GET /api/models
- * Liste tous les modèles installés localement.
- *
- * ollama.list() retourne :
- * {
- *   models: [
- *     {
- *       name: "llama3.1:latest",
- *       model: "llama3.1:latest",
- *       modified_at: "2024-...",
- *       size: 4661224676,
- *       digest: "...",
- *       details: {
- *         parent_model: "",
- *         format: "gguf",
- *         family: "llama",
- *         families: ["llama"],
- *         parameter_size: "8.0B",
- *         quantization_level: "Q4_0"
- *       }
- *     },
- *     ...
- *   ]
- * }
+ * GET /api/version
+ * Retourne la version d'Ollama.
  */
-router.get('/', async (req, res) => {
+router.get('/version', async (req, res) => {
   try {
     const ollama   = req.app.get('ollama');
-    const response = await ollama.list();
+    // Si ollama-js ne supporte pas .version(), on fait un fetch direct
+    const fetch    = (await import('node-fetch')).default;
+    const host     = ollama?.config?.host || 'http://localhost:11434';
+    const response = await fetch(`${host}/api/version`);
+    const data     = await response.json();
+
+    res.json({ success: true, version: data.version });
+
+  } catch (err) {
+    console.error('❌ Erreur /api/version:', err.message);
+    res.status(502).json({
+      success: false,
+      error: 'Impossible de contacter Ollama. Vérifiez que "ollama serve" est lancé.'
+    });
+  }
+});
+
+/**
+ * GET /api/tags
+ * Liste tous les modèles installés localement.
+ *
+ * Correspond à : GET http://localhost:11434/api/tags
+ */
+router.get('/tags', async (req, res) => {
+  try {
+    const ollama   = req.app.get('ollama');
+    const response = await ollama.list();   // → GET /api/tags
 
     const models = (response.models || []).map(m => ({
       name:           m.name,
@@ -74,28 +76,15 @@ router.get('/', async (req, res) => {
 });
 
 /**
- * GET /api/models/running
- * Modèles actuellement chargés en mémoire (ollama ps).
+ * GET /api/ps
+ * Modèles actuellement chargés en mémoire.
  *
- * ollama.ps() retourne :
- * {
- *   models: [
- *     {
- *       name: "llama3.1:latest",
- *       model: "llama3.1:latest",
- *       size: 5137025024,
- *       digest: "...",
- *       details: { ... },
- *       expires_at: "2024-...",
- *       size_vram: 5137025024
- *     }
- *   ]
- * }
+ * Correspond à : GET http://localhost:11434/api/ps
  */
-router.get('/running', async (req, res) => {
+router.get('/ps', async (req, res) => {
   try {
     const ollama   = req.app.get('ollama');
-    const response = await ollama.ps();
+    const response = await ollama.ps();   // → GET /api/ps
 
     const running = (response.models || []).map(m => ({
       name:      m.name,
@@ -118,21 +107,127 @@ router.get('/running', async (req, res) => {
 });
 
 /**
- * GET /api/models/show/:name
+ * POST /api/generate/load
+ * Activer (charger) un modèle en mémoire.
+ *
+ * Correspond à : POST http://localhost:11434/api/generate
+ * Body: { "model": "gpt-oss:20b" }
+ */
+router.post('/generate/load', async (req, res) => {
+  const { model } = req.body;
+
+  if (!model || typeof model !== 'string') {
+    return res.status(400).json({
+      success: false,
+      error: 'Le champ "model" (string) est requis.'
+    });
+  }
+
+  try {
+    const ollama = req.app.get('ollama');
+
+    // ollama.generate() avec un prompt vide charge simplement le modèle
+    await ollama.generate({
+      model:  model,
+      prompt: '',
+      stream: false
+    });
+
+    res.json({ success: true, message: `Modèle "${model}" chargé en mémoire.` });
+
+  } catch (err) {
+    console.error('❌ Erreur chargement modèle:', err.message);
+    res.status(502).json({
+      success: false,
+      error: `Impossible de charger le modèle "${model}": ${err.message}`
+    });
+  }
+});
+
+/**
+ * POST /api/generate/unload
+ * Désactiver (décharger) un modèle de la mémoire.
+ *
+ * Correspond à : POST http://localhost:11434/api/generate
+ * Body: { "model": "gpt-oss:20b", "keep_alive": 0 }
+ */
+router.post('/generate/unload', async (req, res) => {
+  const { model } = req.body;
+
+  if (!model || typeof model !== 'string') {
+    return res.status(400).json({
+      success: false,
+      error: 'Le champ "model" (string) est requis.'
+    });
+  }
+
+  try {
+    const ollama = req.app.get('ollama');
+
+    await ollama.generate({
+      model:      model,
+      prompt:     '',
+      keep_alive: 0,
+      stream:     false
+    });
+
+    res.json({ success: true, message: `Modèle "${model}" déchargé de la mémoire.` });
+
+  } catch (err) {
+    console.error('❌ Erreur déchargement modèle:', err.message);
+    res.status(502).json({
+      success: false,
+      error: `Impossible de décharger le modèle "${model}": ${err.message}`
+    });
+  }
+});
+
+/**
+ * POST /api/show
  * Détails complets d'un modèle spécifique.
  *
- * ollama.show({ model }) retourne :
- * {
- *   modelfile: "...",
- *   parameters: "...",
- *   template: "...",
- *   details: { ... },
- *   model_info: { ... }
- * }
+ * Note: Changé de GET à POST car Ollama attend un POST avec body.
+ * Correspond à : POST http://localhost:11434/api/show
+ * Body: { "model": "llama3.1:latest" }
+ */
+router.post('/show', async (req, res) => {
+  try {
+    const ollama    = req.app.get('ollama');
+    const modelName = req.body.model;
+
+    if (!modelName) {
+      return res.status(400).json({
+        success: false,
+        error: 'Le champ "model" est requis.'
+      });
+    }
+
+    const response = await ollama.show({ model: modelName });
+
+    res.json({
+      success: true,
+      info: {
+        modelfile:  response.modelfile,
+        parameters: response.parameters,
+        template:   response.template,
+        details:    response.details,
+        modelInfo:  response.model_info
+      }
+    });
+
+  } catch (err) {
+    console.error('❌ Erreur ollama.show():', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * GET /api/show/:name  (rétro-compatibilité)
+ * Redirige vers le POST /api/show
  */
 router.get('/show/:name', async (req, res) => {
   try {
-    const ollama   = req.app.get('ollama');
+    const ollama    = req.app.get('ollama');
     const modelName = req.params.name;
 
     const response = await ollama.show({ model: modelName });

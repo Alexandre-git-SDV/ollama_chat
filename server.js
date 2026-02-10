@@ -2,13 +2,6 @@
  * ============================================
  *  OLLAMA CHAT APP — Serveur Principal
  * ============================================
- *  Utilise le client officiel ollama-js pour
- *  communiquer avec Ollama.
- *
- *  Docs de référence :
- *  - https://github.com/ollama/ollama-js
- *  - https://docs.ollama.com/api/introduction
- * ============================================
  */
 
 const express = require('express');
@@ -17,7 +10,6 @@ const fs      = require('fs');
 const { Ollama } = require('ollama');
 
 // ── Instance Ollama client officiel ─────────
-// Par défaut se connecte à http://127.0.0.1:11434
 const ollama = new Ollama({ host: 'http://127.0.0.1:11434' });
 
 // ── Express App ─────────────────────────────
@@ -38,14 +30,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.set('ollama', ollama);
 
 // ── Routes API ──────────────────────────────
-app.use('/api/models', require('./routes/models'));
-app.use('/api/chat',   require('./routes/chat'));
+app.use('/api', require('./routes/models'));
+app.use('/api/chat', require('./routes/chat'));
 
 // ── Health check ────────────────────────────
 app.get('/api/health', async (_req, res) => {
   try {
-    // ollama.list() renvoie la liste des modèles
-    // Si ça fonctionne, Ollama est accessible
     const response = await ollama.list();
     res.json({
       status: 'ok',
@@ -62,7 +52,9 @@ app.get('/api/health', async (_req, res) => {
 });
 
 // ── Fallback SPA ────────────────────────────
-app.get('*', (_req, res) => {
+// ⚠️  Express 5 / path-to-regexp v8+ exige un paramètre nommé
+//     pour les wildcards : {*name} au lieu de * tout seul
+app.get('/{*splat}', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
@@ -71,9 +63,9 @@ app.listen(PORT, () => {
   console.log('');
   console.log('  ╔═══════════════════════════════════════════╗');
   console.log('  ║   🤖  Ollama Chat App                     ║');
-  console.log(`  ║   🌐  http://localhost:${PORT}                ║`);
+  console.log(`  ║   🌐  http://localhost:${PORT}               ║`);
   console.log('  ║   📡  Ollama: http://127.0.0.1:11434      ║');
-  console.log('  ║   📚  Client: ollama-js officiel           ║');
+  console.log('  ║   📚  Client: ollama-js officiel          ║');
   console.log('  ╚═══════════════════════════════════════════╝');
   console.log('');
 });

@@ -2,33 +2,13 @@
  * ============================================
  *  ROUTES — Chat & Conversations
  * ============================================
- *  Utilise le client officiel ollama-js :
+ *  Endpoint Ollama réel :
  *
- *  ollama.chat({ model, messages, stream }) → POST /api/chat
+ *  POST http://localhost:11434/api/chat → Chat completion
  *
- *  Mode streaming :
- *    ollama.chat({ ..., stream: true }) retourne un AsyncGenerator
- *    Chaque chunk a la forme :
- *    {
- *      model: "llama3.1:latest",
- *      created_at: "...",
- *      message: { role: "assistant", content: "token..." },
- *      done: false
- *    }
+ *  ollama.chat({ model, messages, stream: true }) → AsyncGenerator
+ *  ollama.chat({ model, messages, stream: false }) → Réponse complète
  *
- *    Le dernier chunk a done: true avec les métriques :
- *    {
- *      done: true,
- *      total_duration: ...,
- *      load_duration: ...,
- *      prompt_eval_count: ...,
- *      prompt_eval_duration: ...,
- *      eval_count: ...,
- *      eval_duration: ...
- *    }
- *
- *  Ref: https://github.com/ollama/ollama-js#streaming-responses
- *  Ref: https://docs.ollama.com/api/generate-chat-completion
  * ============================================
  */
 
@@ -41,9 +21,19 @@ const { v4: uuidv4 } = require('uuid');
 
 const CONV_DIR = path.join(__dirname, '..', 'conversations');
 
+// S'assurer que le dossier conversations existe au démarrage
+(async () => {
+  try {
+    await fsp.mkdir(CONV_DIR, { recursive: true });
+  } catch (e) { /* ignore */ }
+})();
+
 // ───────────────────────────────────────────
 // POST /api/chat/stream
 // Envoie un message au modèle avec streaming SSE
+//
+// Correspond à : POST http://localhost:11434/api/chat
+// avec stream: true
 // ───────────────────────────────────────────
 router.post('/stream', async (req, res) => {
   const { model, messages } = req.body;
@@ -64,7 +54,6 @@ router.post('/stream', async (req, res) => {
   }
 
   // ── Nettoyage des messages ──
-  // L'API Ollama attend : [{ role: "user"|"assistant"|"system", content: "..." }]
   const cleanMessages = messages
     .filter(m => m && m.role && m.content)
     .map(m => ({
@@ -97,22 +86,8 @@ router.post('/stream', async (req, res) => {
     const ollama = req.app.get('ollama');
 
     /**
-     * ollama.chat() avec stream: true retourne un AsyncGenerator.
-     *
-     * Chaque itération yield un objet :
-     * {
-     *   model: string,
-     *   created_at: string,
-     *   message: { role: "assistant", content: "..." },
-     *   done: boolean,
-     *   // Quand done === true, métriques incluses :
-     *   total_duration?: number,
-     *   load_duration?: number,
-     *   prompt_eval_count?: number,
-     *   prompt_eval_duration?: number,
-     *   eval_count?: number,
-     *   eval_duration?: number
-     * }
+     * POST http://localhost:11434/api/chat
+     * avec stream: true → AsyncGenerator
      */
     const stream = await ollama.chat({
       model:    model,
@@ -120,24 +95,21 @@ router.post('/stream', async (req, res) => {
       stream:   true
     });
 
-    // ── Itérer sur le stream ──
     for await (const chunk of stream) {
       if (aborted) break;
 
       if (chunk.done) {
-        // Dernier chunk : métriques
         const metrics = {
-          done:                true,
-          total_duration:      chunk.total_duration,
-          load_duration:       chunk.load_duration,
-          prompt_eval_count:   chunk.prompt_eval_count,
+          done:                 true,
+          total_duration:       chunk.total_duration,
+          load_duration:        chunk.load_duration,
+          prompt_eval_count:    chunk.prompt_eval_count,
           prompt_eval_duration: chunk.prompt_eval_duration,
-          eval_count:          chunk.eval_count,
-          eval_duration:       chunk.eval_duration
+          eval_count:           chunk.eval_count,
+          eval_duration:        chunk.eval_duration
         };
         res.write(`data: ${JSON.stringify(metrics)}\n\n`);
       } else {
-        // Token par token
         const token = chunk.message?.content || '';
         if (token) {
           res.write(`data: ${JSON.stringify({ token, done: false })}\n\n`);
@@ -163,6 +135,9 @@ router.post('/stream', async (req, res) => {
 // ───────────────────────────────────────────
 // POST /api/chat/title
 // Génère un titre court pour une conversation
+//
+// Correspond à : POST http://localhost:11434/api/chat
+// avec stream: false
 // ───────────────────────────────────────────
 router.post('/title', async (req, res) => {
   const { model, message } = req.body;
@@ -178,16 +153,8 @@ router.post('/title', async (req, res) => {
     const ollama = req.app.get('ollama');
 
     /**
-     * ollama.chat() sans stream (stream: false par défaut)
-     * retourne directement la réponse complète :
-     * {
-     *   model: string,
-     *   created_at: string,
-     *   message: { role: "assistant", content: "..." },
-     *   done: true,
-     *   total_duration: number,
-     *   ...
-     * }
+     * POST http://localhost:11434/api/chat
+     * avec stream: false → réponse complète
      */
     const response = await ollama.chat({
       model:    model,
@@ -208,12 +175,11 @@ router.post('/title', async (req, res) => {
 
     // Nettoyage du titre
     title = title
-      .replace(/^["'«]|["'»]$/g, '')    // Retirer guillemets
-      .replace(/\.+$/, '')                // Retirer point final
-      .replace(/\n.*/g, '')              // Garder première ligne seulement
+      .replace(/^["'«]|["'»]$/g, '')
+      .replace(/\.+$/, '')
+      .replace(/\n.*/g, '')
       .trim();
 
-    // Fallback si titre vide ou trop long
     if (!title || title.length > 80 || title.length < 2) {
       title = message.substring(0, 50) + (message.length > 50 ? '…' : '');
     }
@@ -222,7 +188,6 @@ router.post('/title', async (req, res) => {
 
   } catch (err) {
     console.error('❌ Erreur génération titre:', err.message);
-    // Fallback : utiliser le début du message
     const fallback = message.substring(0, 50) + (message.length > 50 ? '…' : '');
     res.json({ success: true, title: fallback });
   }
@@ -230,7 +195,6 @@ router.post('/title', async (req, res) => {
 
 // ───────────────────────────────────────────
 // GET /api/chat/conversations
-// Liste toutes les conversations sauvegardées
 // ───────────────────────────────────────────
 router.get('/conversations', async (_req, res) => {
   try {
@@ -253,12 +217,10 @@ router.get('/conversations', async (_req, res) => {
           messageCount: (data.messages || []).length
         });
       } catch (e) {
-        // Fichier JSON corrompu → ignorer
         console.warn(`⚠️ Fichier corrompu ignoré: ${file}`);
       }
     }
 
-    // Trier par date de mise à jour décroissante
     conversations.sort((a, b) => new Date(b.updated) - new Date(a.updated));
 
     res.json({ success: true, conversations });
@@ -274,7 +236,6 @@ router.get('/conversations', async (_req, res) => {
 
 // ───────────────────────────────────────────
 // GET /api/chat/conversation/:id
-// Récupère une conversation complète
 // ───────────────────────────────────────────
 router.get('/conversation/:id', async (req, res) => {
   try {
@@ -300,7 +261,7 @@ router.get('/conversation/:id', async (req, res) => {
 });
 
 // ───────────────────────────────────────────
-// POST /api/chat/conversation — Créer nouvelle
+// POST /api/chat/conversation
 // ───────────────────────────────────────────
 router.post('/conversation', async (req, res) => {
   try {
@@ -330,7 +291,6 @@ router.post('/conversation', async (req, res) => {
 
 // ───────────────────────────────────────────
 // POST /api/chat/conversation/:id/save
-// Sauvegarde messages dans une conversation
 // ───────────────────────────────────────────
 router.post('/conversation/:id/save', async (req, res) => {
   try {
@@ -344,14 +304,11 @@ router.post('/conversation/:id/save', async (req, res) => {
       const raw    = await fsp.readFile(filePath, 'utf-8');
       conversation = JSON.parse(raw);
 
-      // Mise à jour sélective
       if (messages !== undefined) conversation.messages = messages;
       if (title !== undefined)    conversation.title    = title;
       if (model !== undefined)    conversation.model    = model;
       conversation.updated = new Date().toISOString();
-
     } else {
-      // Création à la volée
       conversation = {
         id,
         title:    title || 'Nouvelle conversation',
@@ -374,7 +331,6 @@ router.post('/conversation/:id/save', async (req, res) => {
 
 // ───────────────────────────────────────────
 // PUT /api/chat/conversation/:id
-// Renommer une conversation
 // ───────────────────────────────────────────
 router.put('/conversation/:id', async (req, res) => {
   try {
@@ -405,7 +361,6 @@ router.put('/conversation/:id', async (req, res) => {
 
 // ───────────────────────────────────────────
 // DELETE /api/chat/conversation/:id
-// Supprimer une conversation
 // ───────────────────────────────────────────
 router.delete('/conversation/:id', async (req, res) => {
   try {
@@ -424,10 +379,6 @@ router.delete('/conversation/:id', async (req, res) => {
   }
 });
 
-/**
- * Sécurisation de l'ID : on ne garde que les caractères alphanumériques et tirets.
- * Empêche les attaques de type path traversal.
- */
 function sanitizeId(id) {
   return String(id).replace(/[^a-zA-Z0-9\-]/g, '');
 }
