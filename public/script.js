@@ -1,913 +1,1056 @@
-// ============================================================
-//  Configuration
-// ============================================================
+// ════════════════════════════════════════════════════════════
+//  Ollama Chat — script.js
+//  Sidebar : conversations uniquement + connexion + settings + thème
+// ════════════════════════════════════════════════════════════
 
 const OLLAMA_BASE = "http://localhost:11434";
 
-// ============================================================
-//  State
-// ============================================================
-
+// ── State ──
 let conversations = JSON.parse(localStorage.getItem("ollama-conversations") || "[]");
 let currentConvId = null;
 let currentModel = localStorage.getItem("ollama-model") || "";
 let isGenerating = false;
 let abortController = null;
 
-// ============================================================
-//  DOM References
-// ============================================================
+// ── DOM ──
+const dom = {
+  app:                document.getElementById("app"),
+  sidebar:            document.getElementById("sidebar"),
+  sidebarBackdrop:    document.getElementById("sidebarBackdrop"),
+  btnSidebarToggle:   document.getElementById("btnSidebarToggle"),
+  btnNewChat:         document.getElementById("btnNewChat"),
+  connectionStatus:   document.getElementById("connectionStatus"),
+  conversationsList:  document.getElementById("conversationsList"),
+  btnOpenSettings:    document.getElementById("btnOpenSettings"),
+  btnToggleTheme:     document.getElementById("btnToggleTheme"),
+  themeLabel:         document.getElementById("themeLabel"),
+  headerTitle:        document.getElementById("headerTitle"),
+  btnModelSelect:     document.getElementById("btnModelSelect"),
+  modelName:          document.getElementById("modelName"),
+  modelDropdown:      document.getElementById("modelDropdown"),
+  btnExport:          document.getElementById("btnExport"),
+  btnDeleteChat:      document.getElementById("btnDeleteChat"),
+  chatMessages:       document.getElementById("chatMessages"),
+  welcomeScreen:      document.getElementById("welcomeScreen"),
+  typingIndicator:    document.getElementById("typingIndicator"),
+  userInput:          document.getElementById("userInput"),
+  btnSend:            document.getElementById("btnSend"),
+  btnStop:            document.getElementById("btnStop"),
+  // Settings modal
+  settingsModal:      document.getElementById("settingsModal"),
+  closeSettings:      document.getElementById("closeSettings"),
+  modelSelect:        document.getElementById("modelSelect"),
+  btnRefreshModels:   document.getElementById("btnRefreshModels"),
+  btnModelInfo:       document.getElementById("btnModelInfo"),
+  systemPrompt:       document.getElementById("systemPrompt"),
+  temperature:        document.getElementById("temperature"),
+  tempValue:          document.getElementById("tempValue"),
+  colorSwatches:      document.getElementById("colorSwatches"),
+  // Model info modal
+  modelInfoModal:     document.getElementById("modelInfoModal"),
+  closeModelInfo:     document.getElementById("closeModelInfo"),
+  modelInfoContent:   document.getElementById("modelInfoContent"),
+  // Toast
+  toastContainer:     document.getElementById("toastContainer"),
+};
 
-const $app = document.getElementById("app");
-const $sidebar = document.getElementById("sidebar");
-const $sidebarBackdrop = document.getElementById("sidebarBackdrop");
-const $btnSidebarToggle = document.getElementById("btnSidebarToggle");
-const $btnNewChat = document.getElementById("btnNewChat");
-const $connectionStatus = document.getElementById("connectionStatus");
-const $modelSelect = document.getElementById("modelSelect");
-const $btnRefreshModels = document.getElementById("btnRefreshModels");
-const $btnModelInfo = document.getElementById("btnModelInfo");
-const $conversationsContainer = document.getElementById("conversationsContainer");
-const $emptyConversations = document.getElementById("emptyConversations");
-const $systemPrompt = document.getElementById("systemPrompt");
-const $temperature = document.getElementById("temperature");
-const $tempValue = document.getElementById("tempValue");
-const $themeToggle = document.getElementById("themeToggle");
-const $colorSwatches = document.getElementById("colorSwatches");
-const $headerTitle = document.getElementById("headerTitle");
-const $btnModelSelect = document.getElementById("btnModelSelect");
-const $modelName = document.getElementById("modelName");
-const $modelDropdown = document.getElementById("modelDropdown");
-const $btnExport = document.getElementById("btnExport");
-const $btnClearChat = document.getElementById("btnClearChat");
-const $chatMessages = document.getElementById("chatMessages");
-const $welcomeScreen = document.getElementById("welcomeScreen");
-const $typingIndicator = document.getElementById("typingIndicator");
-const $userInput = document.getElementById("userInput");
-const $btnSend = document.getElementById("btnSend");
-const $btnStop = document.getElementById("btnStop");
-const $modelInfoModal = document.getElementById("modelInfoModal");
-const $closeModelInfoModal = document.getElementById("closeModelInfoModal");
-const $modelInfoContent = document.getElementById("modelInfoContent");
-const $toastContainer = document.getElementById("toastContainer");
+// ════════════════════════════════════════════
+//  UTILITIES
+// ════════════════════════════════════════════
 
-// ============================================================
-//  Utilities
-// ============================================================
-
-function generateId() {
-    return Date.now().toString(36) + Math.random().toString(36).slice(2);
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
-function escapeHtml(text) {
-    const div = document.createElement("div");
-    div.textContent = text;
-    return div.innerHTML;
+function esc(text) {
+  const d = document.createElement("div");
+  d.textContent = text;
+  return d.innerHTML;
 }
 
-function toast(message, type = "info") {
-    const icons = {
-        success: "✅",
-        error: "❌",
-        warning: "⚠️",
-        info: "ℹ️",
-    };
-    const el = document.createElement("div");
-    el.className = `toast toast-${type}`;
-    el.innerHTML = `<span class="toast-icon">${icons[type] || icons.info}</span><span>${escapeHtml(message)}</span>`;
-    $toastContainer.appendChild(el);
-
-    setTimeout(() => {
-        el.classList.add("toast-out");
-        setTimeout(() => el.remove(), 300);
-    }, 3500);
+function toast(msg, type = "info") {
+  const icons = { success: "✓", error: "✗", warning: "⚠", info: "ℹ" };
+  const el = document.createElement("div");
+  el.className = `toast toast-${type}`;
+  el.innerHTML = `<span class="toast-icon">${icons[type] || "ℹ"}</span><span>${esc(msg)}</span>`;
+  dom.toastContainer.appendChild(el);
+  setTimeout(() => {
+    el.classList.add("toast-out");
+    setTimeout(() => el.remove(), 300);
+  }, 3500);
 }
 
-function saveConversations() {
-    localStorage.setItem("ollama-conversations", JSON.stringify(conversations));
+function save() {
+  localStorage.setItem("ollama-conversations", JSON.stringify(conversations));
 }
 
-function getCurrentConv() {
-    return conversations.find((c) => c.id === currentConvId) || null;
+function getConv() {
+  return conversations.find(c => c.id === currentConvId) || null;
 }
 
 function showWelcome(show) {
-    $welcomeScreen.style.display = show ? "flex" : "none";
+  if (dom.welcomeScreen) {
+    dom.welcomeScreen.style.display = show ? "flex" : "none";
+  }
 }
 
-// ============================================================
-//  Markdown Rendering
-// ============================================================
+function scrollBottom() {
+  requestAnimationFrame(() => {
+    dom.chatMessages.scrollTop = dom.chatMessages.scrollHeight;
+  });
+}
 
-let codeBlockCounter = 0;
+function formatBytes(bytes) {
+  if (!bytes) return "?";
+  const gb = bytes / 1e9;
+  if (gb >= 1) return gb.toFixed(1) + " GB";
+  return (bytes / 1e6).toFixed(0) + " MB";
+}
 
-function renderMarkdown(text) {
-    if (!text) return "";
+// ════════════════════════════════════════════
+//  MARKDOWN RENDERER
+// ════════════════════════════════════════════
 
-    let html = escapeHtml(text);
+let codeId = 0;
 
-    // Code blocks with language
-    html = html.replace(
-        /```(\w*)\n([\s\S]*?)```/g,
-        (_, lang, code) => {
-            const id = `code-${++codeBlockCounter}`;
-            const langLabel = lang || "code";
-            let highlighted;
-            try {
-                highlighted =
-                    lang && hljs.getLanguage(lang)
-                        ? hljs.highlight(code.trim(), { language: lang }).value
-                        : hljs.highlightAuto(code.trim()).value;
-            } catch {
-                highlighted = escapeHtml(code.trim());
-            }
-            return `<div class="code-block">
-                <div class="code-header">
-                    <span class="code-lang">${langLabel}</span>
-                    <button class="btn-copy" onclick="copyCode('${id}')">📋 Copier</button>
-                </div>
-                <pre><code id="${id}" class="hljs language-${langLabel}">${highlighted}</code></pre>
-            </div>`;
-        }
-    );
+function renderMd(text) {
+  if (!text) return "";
+  let h = esc(text);
 
-    // Inline code
-    html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+  // Code blocks  ```lang\ncode```
+  h = h.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
+    const id = `cb-${++codeId}`;
+    const label = lang || "code";
+    let highlighted;
+    try {
+      highlighted = lang && hljs.getLanguage(lang)
+        ? hljs.highlight(code, { language: lang }).value
+        : hljs.highlightAuto(code).value;
+    } catch {
+      highlighted = esc(code);
+    }
+    return `<div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">${label}</span>
+        <button class="btn-copy-code" onclick="copyCode('${id}')">Copier</button>
+      </div>
+      <pre><code id="${id}">${highlighted}</code></pre>
+    </div>`;
+  });
 
-    // Bold
-    html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  // Inline code
+  h = h.replace(/`([^`]+)`/g, '<code>$1</code>');
 
-    // Italic
-    html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");
+  // Bold / italic
+  h = h.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  h = h.replace(/\*(.+?)\*/g, '<em>$1</em>');
 
-    // Headers
-    html = html.replace(/^#### (.+)$/gm, "<h4>$1</h4>");
-    html = html.replace(/^### (.+)$/gm, "<h3>$1</h3>");
-    html = html.replace(/^## (.+)$/gm, "<h2>$1</h2>");
-    html = html.replace(/^# (.+)$/gm, "<h1>$1</h1>");
+  // Headers
+  h = h.replace(/^### (.+)$/gm, '<h4>$1</h4>');
+  h = h.replace(/^## (.+)$/gm, '<h3>$1</h3>');
+  h = h.replace(/^# (.+)$/gm, '<h2>$1</h2>');
 
-    // Horizontal rule
-    html = html.replace(/^---$/gm, "<hr>");
+  // HR
+  h = h.replace(/^---$/gm, '<hr>');
 
-    // Blockquote
-    html = html.replace(/^&gt; (.+)$/gm, "<blockquote>$1</blockquote>");
+  // Blockquote
+  h = h.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
 
-    // Unordered lists
-    html = html.replace(/^[-*] (.+)$/gm, "<li>$1</li>");
-    html = html.replace(/(<li>.*<\/li>)/gs, "<ul>$1</ul>");
+  // Lists
+  h = h.replace(/^[-*] (.+)$/gm, '<li>$1</li>');
+  h = h.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>');
 
-    // Links
-    html = html.replace(
-        /\[([^\]]+)\]\(([^)]+)\)/g,
-        '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
-    );
+  // Paragraphs
+  h = h.replace(/\n\n/g, '</p><p>');
+  h = h.replace(/\n/g, '<br>');
+  h = `<p>${h}</p>`;
+  h = h.replace(/<p><\/p>/g, '');
 
-    // Paragraphs
-    html = html.replace(/\n\n/g, "</p><p>");
-    html = html.replace(/\n/g, "<br>");
-    html = `<p>${html}</p>`;
-    html = html.replace(/<p><\/p>/g, "");
-
-    return html;
+  return h;
 }
 
 window.copyCode = function (id) {
-    const codeEl = document.getElementById(id);
-    if (codeEl) {
-        navigator.clipboard.writeText(codeEl.textContent);
-        toast("Code copié !", "success");
-    }
+  const el = document.getElementById(id);
+  if (el) {
+    navigator.clipboard.writeText(el.textContent);
+    toast("Code copié", "success");
+  }
 };
 
-// ============================================================
-//  Ollama API
-// ============================================================
+// ════════════════════════════════════════════
+//  OLLAMA API
+// ════════════════════════════════════════════
 
 async function checkConnection() {
-    const dot = $connectionStatus.querySelector(".status-dot");
-    const txt = $connectionStatus.querySelector(".status-text");
-
-    try {
-        const res = await fetch(`${OLLAMA_BASE}/api/tags`, {
-            method: "GET",
-            signal: AbortSignal.timeout(5000),
-        });
-
-        if (res.ok) {
-            dot.className = "status-dot connected";
-            txt.textContent = "Connecté à Ollama";
-            console.log("✅ Ollama connecté sur", OLLAMA_BASE);
-            return true;
-        } else {
-            throw new Error(`HTTP ${res.status}`);
-        }
-    } catch (err) {
-        dot.className = "status-dot disconnected";
-        txt.textContent = "Ollama non détecté";
-        console.warn("❌ Ollama non accessible:", err.message);
-        return false;
+  const dot = dom.connectionStatus.querySelector(".status-dot");
+  const txt = dom.connectionStatus.querySelector(".status-text");
+  try {
+    const res = await fetch(`${OLLAMA_BASE}/api/tags`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (res.ok) {
+      dot.classList.remove("disconnected");
+      dot.classList.add("connected");
+      txt.textContent = "Ollama connecté";
+      return true;
     }
+    throw new Error("not ok");
+  } catch {
+    dot.classList.remove("connected");
+    dot.classList.add("disconnected");
+    txt.textContent = "Ollama déconnecté";
+    return false;
+  }
 }
 
 async function fetchModels() {
-    try {
-        const res = await fetch(`${OLLAMA_BASE}/api/tags`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        return data.models || [];
-    } catch (err) {
-        console.error("Erreur fetchModels:", err);
-        return [];
-    }
+  try {
+    const res = await fetch(`${OLLAMA_BASE}/api/tags`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    return data.models || [];
+  } catch (err) {
+    console.error("fetchModels:", err);
+    return [];
+  }
 }
 
-async function fetchModelInfo(modelName) {
-    try {
-        const res = await fetch(`${OLLAMA_BASE}/api/show`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: modelName }),
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return await res.json();
-    } catch (err) {
-        console.error("Erreur fetchModelInfo:", err);
-        return null;
-    }
+async function fetchModelInfo(name) {
+  try {
+    const res = await fetch(`${OLLAMA_BASE}/api/show`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.error("fetchModelInfo:", err);
+    return null;
+  }
 }
 
-// ============================================================
-//  Models UI
-// ============================================================
+async function* streamChat(model, messages) {
+  abortController = new AbortController();
+
+  const temp = parseFloat(dom.temperature.value) || 0.7;
+
+  const body = {
+    model,
+    messages,
+    stream: true,
+    options: {
+      temperature: temp,
+    },
+  };
+
+  const res = await fetch(`${OLLAMA_BASE}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal: abortController.signal,
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Ollama HTTP ${res.status}: ${errText}`);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop(); // garder le fragment incomplet
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try {
+        const json = JSON.parse(line);
+        if (json.message && json.message.content) {
+          yield { token: json.message.content, done: false };
+        }
+        if (json.done) {
+          yield {
+            token: "",
+            done: true,
+            total_duration: json.total_duration,
+            eval_count: json.eval_count,
+            eval_duration: json.eval_duration,
+          };
+        }
+      } catch (e) {
+        console.warn("JSON parse:", line, e);
+      }
+    }
+  }
+
+  // Traiter le reste du buffer
+  if (buffer.trim()) {
+    try {
+      const json = JSON.parse(buffer);
+      if (json.message && json.message.content) {
+        yield { token: json.message.content, done: false };
+      }
+      if (json.done) {
+        yield {
+          token: "",
+          done: true,
+          total_duration: json.total_duration,
+          eval_count: json.eval_count,
+          eval_duration: json.eval_duration,
+        };
+      }
+    } catch (e) {
+      console.warn("JSON parse final:", buffer, e);
+    }
+  }
+}
+
+// ════════════════════════════════════════════
+//  LOAD MODELS
+// ════════════════════════════════════════════
 
 async function loadModels() {
-    $modelSelect.innerHTML = '<option value="">Chargement…</option>';
-    $modelName.textContent = "Chargement…";
+  const models = await fetchModels();
+  if (!models.length) {
+    dom.modelName.textContent = "Aucun modèle";
+    dom.modelSelect.innerHTML = '<option value="">Aucun modèle</option>';
+    toast("Aucun modèle trouvé. Installez-en avec : ollama pull", "warning");
+    return;
+  }
 
-    const models = await fetchModels();
+  // Dropdown dans header
+  dom.modelDropdown.innerHTML = models.map(m => {
+    const size = formatBytes(m.size);
+    const active = m.name === currentModel ? "active" : "";
+    return `<div class="model-option ${active}" data-model="${m.name}">
+      <span class="model-option-name">${m.name}</span>
+      <span class="model-option-size">${size}</span>
+    </div>`;
+  }).join("");
 
-    if (models.length === 0) {
-        $modelSelect.innerHTML = '<option value="">Aucun modèle</option>';
-        $modelName.textContent = "Aucun modèle";
-        toast("Aucun modèle trouvé. Lancez : ollama pull llama3.2", "warning");
-        return;
-    }
+  // Select dans settings
+  dom.modelSelect.innerHTML = models.map(m => {
+    const size = formatBytes(m.size);
+    return `<option value="${m.name}" ${m.name === currentModel ? "selected" : ""}>${m.name} (${size})</option>`;
+  }).join("");
 
-    // Populate sidebar select
-    $modelSelect.innerHTML = "";
-    models.forEach((m) => {
-        const opt = document.createElement("option");
-        opt.value = m.name;
-        const sizeGB = m.size ? (m.size / 1e9).toFixed(1) + " GB" : "";
-        opt.textContent = `${m.name} ${sizeGB ? `(${sizeGB})` : ""}`;
-        $modelSelect.appendChild(opt);
+  // Si pas de modèle sélectionné, prendre le premier
+  if (!currentModel || !models.find(m => m.name === currentModel)) {
+    currentModel = models[0].name;
+    localStorage.setItem("ollama-model", currentModel);
+  }
+
+  dom.modelName.textContent = currentModel;
+  toast(`${models.length} modèle(s) chargé(s)`, "success");
+
+  // Bind click sur dropdown
+  dom.modelDropdown.querySelectorAll(".model-option").forEach(opt => {
+    opt.addEventListener("click", () => {
+      currentModel = opt.dataset.model;
+      localStorage.setItem("ollama-model", currentModel);
+      dom.modelName.textContent = currentModel;
+      dom.modelSelect.value = currentModel;
+      closeModelDropdown();
+      toast(`Modèle : ${currentModel}`, "info");
+      // Mettre à jour les classes active
+      dom.modelDropdown.querySelectorAll(".model-option").forEach(o => o.classList.remove("active"));
+      opt.classList.add("active");
     });
+  });
+}
 
-    // Populate header dropdown
-    $modelDropdown.innerHTML = "";
-    models.forEach((m) => {
-        const div = document.createElement("div");
-        div.className = "model-dropdown-item";
-        const sizeGB = m.size ? (m.size / 1e9).toFixed(1) + " GB" : "";
-        div.innerHTML = `<span>${m.name}</span><span class="model-size">${sizeGB}</span>`;
-        div.addEventListener("click", () => {
-            selectModel(m.name);
-            $modelDropdown.classList.remove("open");
-        });
-        $modelDropdown.appendChild(div);
+// ════════════════════════════════════════════
+//  MODEL DROPDOWN (header)
+// ════════════════════════════════════════════
+
+let dropdownOpen = false;
+
+function toggleModelDropdown() {
+  dropdownOpen ? closeModelDropdown() : openModelDropdown();
+}
+
+function openModelDropdown() {
+  dom.modelDropdown.classList.add("open");
+  dropdownOpen = true;
+}
+
+function closeModelDropdown() {
+  dom.modelDropdown.classList.remove("open");
+  dropdownOpen = false;
+}
+
+// ════════════════════════════════════════════
+//  CONVERSATIONS LIST
+// ════════════════════════════════════════════
+
+function renderConversations() {
+  const sorted = [...conversations].sort((a, b) => b.updatedAt - a.updatedAt);
+
+  if (!sorted.length) {
+    dom.conversationsList.innerHTML = `
+      <div class="conversations-empty">
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        <span>Aucune conversation</span>
+      </div>`;
+    return;
+  }
+
+  dom.conversationsList.innerHTML = sorted.map(c => `
+    <div class="conv-item ${c.id === currentConvId ? 'active' : ''}" data-id="${c.id}">
+      <span class="conv-title">${esc(c.title)}</span>
+      <button class="conv-delete" data-id="${c.id}" title="Supprimer">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+  `).join("");
+
+  // Bind clicks
+  dom.conversationsList.querySelectorAll(".conv-item").forEach(el => {
+    el.addEventListener("click", (e) => {
+      if (e.target.closest(".conv-delete")) {
+        e.stopPropagation();
+        deleteConversation(el.dataset.id);
+        return;
+      }
+      openConversation(el.dataset.id);
     });
-
-    // Restore or select first
-    if (currentModel && models.some((m) => m.name === currentModel)) {
-        selectModel(currentModel);
-    } else {
-        selectModel(models[0].name);
-    }
-
-    toast(`${models.length} modèle(s) trouvé(s)`, "success");
+  });
 }
 
-function selectModel(name) {
-    currentModel = name;
-    localStorage.setItem("ollama-model", name);
-    $modelSelect.value = name;
-    $modelName.textContent = name;
+// ════════════════════════════════════════════
+//  CONVERSATION OPERATIONS
+// ════════════════════════════════════════════
 
-    // Update dropdown active state
-    $modelDropdown.querySelectorAll(".model-dropdown-item").forEach((item) => {
-        const itemName = item.querySelector("span").textContent;
-        item.classList.toggle("active", itemName === name);
-    });
-}
-
-async function showModelInfo() {
-    if (!currentModel) {
-        toast("Aucun modèle sélectionné", "warning");
-        return;
-    }
-
-    $modelInfoContent.innerHTML = "<p>Chargement…</p>";
-    $modelInfoModal.style.display = "flex";
-
-    const info = await fetchModelInfo(currentModel);
-    if (!info) {
-        $modelInfoContent.innerHTML = "<p>Impossible de récupérer les informations.</p>";
-        return;
-    }
-
-    let html = `<dl class="model-info-grid">`;
-    html += `<dt>Nom</dt><dd>${escapeHtml(currentModel)}</dd>`;
-
-    if (info.details) {
-        const d = info.details;
-        if (d.family) html += `<dt>Famille</dt><dd>${escapeHtml(d.family)}</dd>`;
-        if (d.parameter_size) html += `<dt>Paramètres</dt><dd>${escapeHtml(d.parameter_size)}</dd>`;
-        if (d.quantization_level) html += `<dt>Quantification</dt><dd>${escapeHtml(d.quantization_level)}</dd>`;
-        if (d.format) html += `<dt>Format</dt><dd>${escapeHtml(d.format)}</dd>`;
-    }
-
-    if (info.model_info) {
-        const mi = info.model_info;
-        if (mi["general.architecture"]) html += `<dt>Architecture</dt><dd>${escapeHtml(mi["general.architecture"])}</dd>`;
-        if (mi["general.parameter_count"]) html += `<dt>Nb paramètres</dt><dd>${Number(mi["general.parameter_count"]).toLocaleString()}</dd>`;
-    }
-
-    html += `</dl>`;
-
-    if (info.system) {
-        html += `<h4 style="margin-top:16px;">System prompt par défaut</h4>`;
-        html += `<pre><code>${escapeHtml(info.system)}</code></pre>`;
-    }
-
-    if (info.template) {
-        html += `<h4 style="margin-top:16px;">Template</h4>`;
-        html += `<pre><code>${escapeHtml(info.template.slice(0, 500))}${info.template.length > 500 ? "…" : ""}</code></pre>`;
-    }
-
-    $modelInfoContent.innerHTML = html;
-}
-
-// ============================================================
-//  Conversations
-// ============================================================
-
-function renderConversationsList() {
-    // Clear non-empty-state children
-    const items = $conversationsContainer.querySelectorAll(".conversation-item");
-    items.forEach((el) => el.remove());
-
-    const sorted = [...conversations].sort((a, b) => b.updatedAt - a.updatedAt);
-
-    if (sorted.length === 0) {
-        $emptyConversations.style.display = "flex";
-        return;
-    }
-
-    $emptyConversations.style.display = "none";
-
-    for (const conv of sorted) {
-        const div = document.createElement("div");
-        div.className = "conversation-item" + (conv.id === currentConvId ? " active" : "");
-        div.innerHTML = `
-            <span class="conv-title">${escapeHtml(conv.title)}</span>
-            <button class="conv-delete" data-id="${conv.id}" title="Supprimer">✕</button>
-        `;
-        div.addEventListener("click", (e) => {
-            if (e.target.classList.contains("conv-delete")) {
-                deleteConversation(e.target.dataset.id);
-                e.stopPropagation();
-                return;
-            }
-            openConversation(conv.id);
-        });
-        $conversationsContainer.appendChild(div);
-    }
-}
-
-function createConversation(firstMessage) {
-    const conv = {
-        id: generateId(),
-        title: firstMessage.slice(0, 50) + (firstMessage.length > 50 ? "…" : ""),
-        messages: [],
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-    };
-    conversations.unshift(conv);
-    saveConversations();
-    currentConvId = conv.id;
-    renderConversationsList();
-    return conv;
+function newChat() {
+  currentConvId = null;
+  dom.headerTitle.textContent = "Nouvelle conversation";
+  dom.chatMessages.querySelectorAll(".message").forEach(m => m.remove());
+  showWelcome(true);
+  renderConversations();
+  dom.userInput.focus();
 }
 
 function openConversation(id) {
-    currentConvId = id;
-    const conv = getCurrentConv();
-    if (!conv) return;
+  currentConvId = id;
+  const conv = getConv();
+  if (!conv) return;
 
-    $headerTitle.textContent = conv.title;
-    showWelcome(false);
-    renderMessages(conv.messages);
-    renderConversationsList();
+  dom.headerTitle.textContent = conv.title;
+  showWelcome(false);
+  renderMessages(conv.messages);
+  renderConversations();
+
+  // Fermer la sidebar sur mobile
+  if (window.innerWidth <= 768) {
+    dom.sidebar.classList.add("collapsed");
+    dom.sidebarBackdrop.classList.remove("visible");
+  }
 }
 
 function deleteConversation(id) {
-    conversations = conversations.filter((c) => c.id !== id);
-    saveConversations();
-
-    if (currentConvId === id) {
-        currentConvId = null;
-        $headerTitle.textContent = "Ollama Chat";
-        $chatMessages.innerHTML = "";
-        $chatMessages.appendChild($welcomeScreen);
-        showWelcome(true);
-    }
-
-    renderConversationsList();
-    toast("Conversation supprimée", "info");
+  if (!confirm("Supprimer cette conversation ?")) return;
+  conversations = conversations.filter(c => c.id !== id);
+  save();
+  if (currentConvId === id) {
+    newChat();
+  }
+  renderConversations();
+  toast("Conversation supprimée", "info");
 }
 
-function clearCurrentChat() {
-    if (!currentConvId) {
-        toast("Pas de conversation active", "warning");
-        return;
-    }
-    const conv = getCurrentConv();
-    if (!conv) return;
-
-    conv.messages = [];
-    conv.updatedAt = Date.now();
-    saveConversations();
-
-    $chatMessages.innerHTML = "";
-    $chatMessages.appendChild($welcomeScreen);
-    showWelcome(true);
-
-    toast("Conversation effacée", "info");
+function createConversation(firstMessage) {
+  const title = firstMessage.length > 50 ? firstMessage.slice(0, 50) + "…" : firstMessage;
+  const conv = {
+    id: uid(),
+    title,
+    model: currentModel,
+    messages: [],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+  conversations.push(conv);
+  currentConvId = conv.id;
+  dom.headerTitle.textContent = title;
+  save();
+  renderConversations();
+  return conv;
 }
 
-// ============================================================
-//  Render messages
-// ============================================================
+// ════════════════════════════════════════════
+//  RENDER MESSAGES
+// ════════════════════════════════════════════
 
 function renderMessages(messages) {
-    // Keep welcome screen ref but hide
-    $chatMessages.innerHTML = "";
-    $chatMessages.appendChild($welcomeScreen);
-    showWelcome(false);
+  // Supprimer les anciens messages (pas le welcome)
+  dom.chatMessages.querySelectorAll(".message").forEach(m => m.remove());
 
-    for (const msg of messages) {
-        appendMessageBubble(msg.role, msg.content, msg.meta);
-    }
-
-    scrollToBottom();
+  messages.forEach(msg => {
+    appendMessageBubble(msg.role, msg.content, msg.meta);
+  });
+  scrollBottom();
 }
 
 function appendMessageBubble(role, content, meta) {
-    const div = document.createElement("div");
-    div.className = `message ${role}`;
+  const div = document.createElement("div");
+  div.className = `message ${role}`;
 
-    const avatarText = role === "user" ? "👤" : "🤖";
+  const avatarSvg = role === "user"
+    ? `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`
+    : `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
 
-    div.innerHTML = `
-        <div class="message-avatar">${avatarText}</div>
-        <div class="message-bubble">
-            <div class="message-content msg-content">${renderMarkdown(content)}</div>
-            ${
-                meta
-                    ? `<div class="message-stats">
-                        ${meta.model ? `<span>🤖 ${escapeHtml(meta.model)}</span>` : ""}
-                        ${meta.duration ? `<span>⏱ ${meta.duration}</span>` : ""}
-                        ${meta.tokens ? `<span>📊 ${meta.tokens} tokens</span>` : ""}
-                    </div>`
-                    : ""
-            }
-            <div class="message-actions">
-                <button onclick="copyMessage(this)" title="Copier">📋 Copier</button>
-            </div>
-        </div>
-    `;
+  div.innerHTML = `
+    <div class="message-avatar">${avatarSvg}</div>
+    <div class="message-bubble">
+      <div class="message-content msg-content">${renderMd(content)}</div>
+      ${meta ? renderMeta(meta) : ""}
+      <div class="message-actions">
+        <button onclick="copyMessage(this)">Copier</button>
+      </div>
+    </div>
+  `;
 
-    $chatMessages.appendChild(div);
-    scrollToBottom();
-    return div;
+  // Insérer avant le welcome screen
+  dom.chatMessages.appendChild(div);
+  return div;
 }
 
-function scrollToBottom() {
-    requestAnimationFrame(() => {
-        $chatMessages.scrollTop = $chatMessages.scrollHeight;
-    });
+function renderMeta(meta) {
+  const parts = [];
+  if (meta.model) parts.push(meta.model);
+  if (meta.duration) parts.push(meta.duration);
+  if (meta.tokens) parts.push(meta.tokens + " tokens");
+  if (!parts.length) return "";
+  return `<div class="message-stats">${parts.join(" · ")}</div>`;
 }
 
 window.copyMessage = function (btn) {
-    const bubble = btn.closest(".message-bubble");
-    const content = bubble.querySelector(".message-content");
+  const content = btn.closest(".message-bubble").querySelector(".message-content");
+  if (content) {
     navigator.clipboard.writeText(content.textContent);
-    toast("Message copié !", "success");
+    toast("Message copié", "success");
+  }
 };
 
-// ============================================================
-//  Chat — Stream
-// ============================================================
+// ════════════════════════════════════════════
+//  SEND MESSAGE
+// ════════════════════════════════════════════
 
 async function sendMessage(text) {
-    if (!text.trim() || isGenerating) return;
-    if (!currentModel) {
-        toast("Sélectionnez un modèle d'abord", "warning");
-        return;
+  if (!text || !text.trim() || isGenerating) return;
+
+  text = text.trim();
+
+  if (!currentModel) {
+    toast("Sélectionnez un modèle d'abord", "warning");
+    return;
+  }
+
+  // Créer la conversation si nécessaire
+  let conv = getConv();
+  if (!conv) {
+    conv = createConversation(text);
+  }
+
+  showWelcome(false);
+
+  // Ajouter le message utilisateur
+  conv.messages.push({ role: "user", content: text });
+  conv.updatedAt = Date.now();
+  save();
+
+  appendMessageBubble("user", text);
+  scrollBottom();
+
+  // Vider l'input
+  dom.userInput.value = "";
+  dom.userInput.style.height = "auto";
+  dom.btnSend.disabled = true;
+
+  // Préparer le message assistant (vide pour commencer)
+  const assistantDiv = appendMessageBubble("assistant", "");
+  const contentEl = assistantDiv.querySelector(".message-content");
+  contentEl.innerHTML = '<span class="skeleton" style="display:inline-block;width:60px;height:16px;"></span>';
+
+  setGenerating(true);
+
+  let fullContent = "";
+  let evalCount = 0;
+  let totalDuration = 0;
+
+  try {
+    // Construire le tableau de messages pour l'API
+    const apiMessages = [];
+
+    // System prompt
+    const sysPrompt = dom.systemPrompt.value.trim();
+    if (sysPrompt) {
+      apiMessages.push({ role: "system", content: sysPrompt });
     }
 
-    // Get or create conversation
-    let conv = getCurrentConv();
-    if (!conv) {
-        conv = createConversation(text);
-        showWelcome(false);
+    // Historique
+    conv.messages.forEach(m => {
+      apiMessages.push({ role: m.role, content: m.content });
+    });
+
+    const stream = streamChat(currentModel, apiMessages);
+
+    for await (const chunk of stream) {
+      if (chunk.token) {
+        fullContent += chunk.token;
+        contentEl.innerHTML = renderMd(fullContent);
+        scrollBottom();
+      }
+      if (chunk.done && chunk.eval_count) {
+        evalCount = chunk.eval_count;
+        totalDuration = chunk.total_duration;
+      }
     }
 
-    // Add user message
-    conv.messages.push({ role: "user", content: text });
+    // Métadonnées
+    const meta = { model: currentModel };
+    if (totalDuration) {
+      meta.duration = (totalDuration / 1e9).toFixed(1) + "s";
+    }
+    if (evalCount) {
+      meta.tokens = evalCount;
+    }
+
+    // Ajouter les stats
+    const statsHtml = renderMeta(meta);
+    if (statsHtml) {
+      const statsEl = document.createElement("div");
+      statsEl.innerHTML = statsHtml;
+      const bubble = contentEl.closest(".message-bubble");
+      const actions = bubble.querySelector(".message-actions");
+      bubble.insertBefore(statsEl.firstElementChild, actions);
+    }
+
+    // Sauvegarder
+    conv.messages.push({ role: "assistant", content: fullContent, meta });
     conv.updatedAt = Date.now();
-    saveConversations();
-    appendMessageBubble("user", text);
+    save();
+    renderConversations();
 
-    // Clear input
-    $userInput.value = "";
-    $userInput.style.height = "auto";
-    $btnSend.disabled = true;
-
-    // Prepare assistant bubble
-    const assistantDiv = appendMessageBubble("assistant", "");
-    const contentEl = assistantDiv.querySelector(".message-content");
-    contentEl.innerHTML = '<span class="skeleton" style="display:inline-block;width:60px;height:16px;"></span>';
-
-    // Build request
-    const systemPrompt = $systemPrompt.value.trim();
-    const temperature = parseFloat($temperature.value);
-
-    const messages = [];
-    if (systemPrompt) {
-        messages.push({ role: "system", content: systemPrompt });
+  } catch (err) {
+    if (err.name === "AbortError") {
+      contentEl.innerHTML = renderMd(fullContent) + '<p><em>(Génération interrompue)</em></p>';
+      conv.messages.push({
+        role: "assistant",
+        content: fullContent + "\n\n*(Génération interrompue)*",
+      });
+      save();
+      toast("Génération arrêtée", "info");
+    } else {
+      console.error("streamChat error:", err);
+      contentEl.innerHTML = `<p style="color:var(--error)">Erreur : ${esc(err.message)}</p>`;
+      toast("Erreur de génération", "error");
     }
-    for (const m of conv.messages) {
-        messages.push({ role: m.role, content: m.content });
-    }
-
-    const body = {
-        model: currentModel,
-        messages,
-        stream: true,
-        options: { temperature },
-    };
-
-    // Start streaming
-    setGenerating(true);
-    abortController = new AbortController();
-    let fullContent = "";
-    let evalCount = 0;
-    let totalDuration = 0;
-
-    try {
-        const res = await fetch(`${OLLAMA_BASE}/api/chat`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-            signal: abortController.signal,
-        });
-
-        if (!res.ok) {
-            const errText = await res.text();
-            throw new Error(`Ollama API erreur ${res.status}: ${errText}`);
-        }
-
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-        let firstToken = true;
-
-        while (true) {
-            const { value, done } = await reader.read();
-            if (done) break;
-
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split("\n");
-            buffer = lines.pop();
-
-            for (const line of lines) {
-                if (!line.trim()) continue;
-
-                let chunk;
-                try {
-                    chunk = JSON.parse(line);
-                } catch {
-                    continue;
-                }
-
-                if (chunk.message && chunk.message.content) {
-                    if (firstToken) {
-                        contentEl.innerHTML = "";
-                        firstToken = false;
-                    }
-                    fullContent += chunk.message.content;
-                    contentEl.innerHTML = renderMarkdown(fullContent);
-                    scrollToBottom();
-                }
-
-                if (chunk.done && chunk.eval_count) {
-                    evalCount = chunk.eval_count;
-                    totalDuration = chunk.total_duration;
-                }
-            }
-        }
-
-        // Meta
-        const meta = { model: currentModel };
-        if (totalDuration) meta.duration = (totalDuration / 1e9).toFixed(1) + "s";
-        if (evalCount) meta.tokens = evalCount;
-
-        // Add stats under message
-        const statsDiv = document.createElement("div");
-        statsDiv.className = "message-stats";
-        const parts = [];
-        if (meta.model) parts.push(`🤖 ${meta.model}`);
-        if (meta.duration) parts.push(`⏱ ${meta.duration}`);
-        if (meta.tokens) parts.push(`📊 ${meta.tokens} tokens`);
-        statsDiv.innerHTML = parts.map((p) => `<span>${p}</span>`).join("");
-        contentEl.parentElement.appendChild(statsDiv);
-
-        // Save
-        conv.messages.push({ role: "assistant", content: fullContent, meta });
-        conv.updatedAt = Date.now();
-        saveConversations();
-        renderConversationsList();
-
-    } catch (err) {
-        if (err.name === "AbortError") {
-            contentEl.innerHTML += `<p><em>(Génération interrompue)</em></p>`;
-            conv.messages.push({
-                role: "assistant",
-                content: fullContent + "\n\n*(Génération interrompue)*",
-            });
-            saveConversations();
-            toast("Génération arrêtée", "info");
-        } else {
-            console.error("❌ streamChat error:", err);
-            contentEl.innerHTML = `<p style="color:var(--error)">❌ Erreur : ${escapeHtml(err.message)}</p>`;
-            toast("Erreur lors de la génération", "error");
-        }
-    } finally {
-        setGenerating(false);
-    }
+  } finally {
+    setGenerating(false);
+  }
 }
 
 function stopGeneration() {
-    if (abortController) {
-        abortController.abort();
-        abortController = null;
-    }
+  if (abortController) {
+    abortController.abort();
+    abortController = null;
+  }
 }
 
 function setGenerating(state) {
-    isGenerating = state;
-    $typingIndicator.style.display = state ? "flex" : "none";
-    $btnSend.style.display = state ? "none" : "flex";
-    $btnStop.style.display = state ? "flex" : "none";
-    $userInput.disabled = state;
-    if (!state) $userInput.focus();
+  isGenerating = state;
+  dom.typingIndicator.style.display = state ? "flex" : "none";
+  dom.btnSend.style.display = state ? "none" : "flex";
+  dom.btnStop.style.display = state ? "flex" : "none";
+  dom.userInput.disabled = state;
+  if (!state) dom.userInput.focus();
 }
 
-// ============================================================
-//  Export
-// ============================================================
+// ════════════════════════════════════════════
+//  EXPORT
+// ════════════════════════════════════════════
 
 function exportConversation() {
-    const conv = getCurrentConv();
-    if (!conv) {
-        toast("Pas de conversation à exporter", "warning");
-        return;
-    }
+  const conv = getConv();
+  if (!conv) {
+    toast("Aucune conversation à exporter", "warning");
+    return;
+  }
 
-    let md = `# ${conv.title}\n\n`;
-    for (const m of conv.messages) {
-        const label = m.role === "user" ? "**Vous**" : "**Assistant**";
-        md += `${label}:\n${m.content}\n\n---\n\n`;
-    }
+  let md = `# ${conv.title}\n\n`;
+  md += `**Modèle** : ${conv.model || "?"}\n`;
+  md += `**Date** : ${new Date(conv.createdAt).toLocaleString("fr-FR")}\n\n---\n\n`;
 
-    const blob = new Blob([md], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${conv.title.replace(/[^a-zA-Z0-9]/g, "_")}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast("Conversation exportée !", "success");
+  conv.messages.forEach(m => {
+    const label = m.role === "user" ? "Vous" : "Assistant";
+    md += `### ${label}\n\n${m.content}\n\n`;
+    if (m.meta) {
+      const parts = [];
+      if (m.meta.model) parts.push(m.meta.model);
+      if (m.meta.duration) parts.push(m.meta.duration);
+      if (m.meta.tokens) parts.push(m.meta.tokens + " tokens");
+      if (parts.length) md += `*${parts.join(" · ")}*\n\n`;
+    }
+    md += "---\n\n";
+  });
+
+  const blob = new Blob([md], { type: "text/markdown" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${conv.title.replace(/[^a-zA-Z0-9]/g, "_")}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast("Conversation exportée", "success");
 }
 
-// ============================================================
-//  Theme
-// ============================================================
+// ════════════════════════════════════════════
+//  THEME
+// ════════════════════════════════════════════
 
 function initTheme() {
-    const savedTheme = localStorage.getItem("ollama-theme") || "dark";
-    applyTheme(savedTheme);
+  const saved = localStorage.getItem("ollama-theme") || "dark";
+  applyTheme(saved);
 }
 
 function applyTheme(theme) {
-    document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("ollama-theme", theme);
+  document.documentElement.setAttribute("data-theme", theme);
+  localStorage.setItem("ollama-theme", theme);
 
-    const isDark = theme === "dark";
-    $themeToggle.classList.toggle("active", isDark);
+  // Icônes
+  const moonIcon = dom.btnToggleTheme.querySelector(".icon-moon");
+  const sunIcon = dom.btnToggleTheme.querySelector(".icon-sun");
 
-    // Toggle highlight.js theme
-    document.getElementById("hljs-theme-dark").disabled = !isDark;
-    document.getElementById("hljs-theme-light").disabled = isDark;
+  if (theme === "dark") {
+    moonIcon.style.display = "block";
+    sunIcon.style.display = "none";
+    dom.themeLabel.textContent = "Thème sombre";
+    // hljs
+    const dark = document.getElementById("hljs-theme-dark");
+    const light = document.getElementById("hljs-theme-light");
+    if (dark) dark.disabled = false;
+    if (light) light.disabled = true;
+  } else {
+    moonIcon.style.display = "none";
+    sunIcon.style.display = "block";
+    dom.themeLabel.textContent = "Thème clair";
+    const dark = document.getElementById("hljs-theme-dark");
+    const light = document.getElementById("hljs-theme-light");
+    if (dark) dark.disabled = true;
+    if (light) light.disabled = false;
+  }
 }
 
 function toggleTheme() {
-    const current = document.documentElement.getAttribute("data-theme");
-    applyTheme(current === "dark" ? "light" : "dark");
+  const current = document.documentElement.getAttribute("data-theme");
+  applyTheme(current === "dark" ? "light" : "dark");
 }
 
-// ============================================================
-//  Accent Color
-// ============================================================
+// ════════════════════════════════════════════
+//  ACCENT COLOR
+// ════════════════════════════════════════════
 
 function initAccentColor() {
-    const saved = localStorage.getItem("ollama-accent");
-    if (saved) setAccentColor(saved);
+  const saved = localStorage.getItem("ollama-accent");
+  if (saved) setAccentColor(saved);
+
+  // Marquer le swatch actif
+  dom.colorSwatches.querySelectorAll(".color-swatch").forEach(sw => {
+    if (sw.dataset.color === saved) {
+      sw.classList.add("active");
+    } else {
+      sw.classList.remove("active");
+    }
+  });
 }
 
 function setAccentColor(color) {
-    document.documentElement.style.setProperty("--accent", color);
-    document.documentElement.style.setProperty("--accent-hover", color);
-    document.documentElement.style.setProperty("--accent-bg", color + "18");
-    document.documentElement.style.setProperty("--accent-glow", color + "4D");
-    document.documentElement.style.setProperty("--logo-color", color);
-    localStorage.setItem("ollama-accent", color);
-
-    // Update active swatch
-    $colorSwatches.querySelectorAll(".color-swatch").forEach((s) => {
-        s.classList.toggle("active", s.dataset.color === color);
-    });
+  document.documentElement.style.setProperty("--accent", color);
+  // Calculer hover (légèrement plus sombre)
+  document.documentElement.style.setProperty("--accent-hover", color);
+  document.documentElement.style.setProperty("--accent-bg", color + "15");
+  document.documentElement.style.setProperty("--accent-glow", color + "40");
+  localStorage.setItem("ollama-accent", color);
 }
 
-// ============================================================
-//  Textarea auto-resize
-// ============================================================
+// ════════════════════════════════════════════
+//  MODEL INFO
+// ════════════════════════════════════════════
+
+async function showModelInfo() {
+  if (!currentModel) {
+    toast("Aucun modèle sélectionné", "warning");
+    return;
+  }
+
+  dom.modelInfoContent.innerHTML = '<div class="skeleton" style="height:100px;width:100%;"></div>';
+  dom.modelInfoModal.style.display = "flex";
+
+  const info = await fetchModelInfo(currentModel);
+  if (!info) {
+    dom.modelInfoContent.innerHTML = "<p>Impossible de charger les informations.</p>";
+    return;
+  }
+
+  let html = '<dl class="model-info-grid">';
+  html += `<dt>Nom</dt><dd>${esc(currentModel)}</dd>`;
+
+  if (info.details) {
+    if (info.details.family) html += `<dt>Famille</dt><dd>${esc(info.details.family)}</dd>`;
+    if (info.details.parameter_size) html += `<dt>Paramètres</dt><dd>${esc(info.details.parameter_size)}</dd>`;
+    if (info.details.quantization_level) html += `<dt>Quantization</dt><dd>${esc(info.details.quantization_level)}</dd>`;
+    if (info.details.format) html += `<dt>Format</dt><dd>${esc(info.details.format)}</dd>`;
+  }
+
+  if (info.model_info) {
+    const mi = info.model_info;
+    // Chercher des clés utiles
+    for (const [key, val] of Object.entries(mi)) {
+      if (key.includes("context_length")) {
+        html += `<dt>Contexte</dt><dd>${val} tokens</dd>`;
+      }
+      if (key.includes("embedding_length")) {
+        html += `<dt>Embedding</dt><dd>${val}</dd>`;
+      }
+    }
+  }
+
+  if (info.license) {
+    html += `<dt>Licence</dt><dd>${esc(info.license.slice(0, 200))}${info.license.length > 200 ? "…" : ""}</dd>`;
+  }
+
+  html += "</dl>";
+
+  if (info.template) {
+    html += `<h4 style="margin-top:16px;">Template</h4>
+    <pre style="background:var(--bg-code);padding:10px;border-radius:6px;font-size:12px;overflow-x:auto;margin-top:8px;">${esc(info.template)}</pre>`;
+  }
+
+  dom.modelInfoContent.innerHTML = html;
+}
+
+// ════════════════════════════════════════════
+//  AUTO RESIZE TEXTAREA
+// ════════════════════════════════════════════
 
 function autoResize() {
-    $userInput.style.height = "auto";
-    $userInput.style.height = Math.min($userInput.scrollHeight, 200) + "px";
-    $btnSend.disabled = !$userInput.value.trim();
+  dom.userInput.style.height = "auto";
+  dom.userInput.style.height = Math.min(dom.userInput.scrollHeight, 200) + "px";
 }
 
-// ============================================================
-//  Event Listeners
-// ============================================================
+// ════════════════════════════════════════════
+//  EVENT BINDINGS
+// ════════════════════════════════════════════
 
-// Sidebar toggle
-$btnSidebarToggle.addEventListener("click", () => {
-    $sidebar.classList.toggle("collapsed");
-    $sidebarBackdrop.classList.toggle("visible");
+// ── Sidebar toggle ──
+dom.btnSidebarToggle.addEventListener("click", () => {
+  dom.sidebar.classList.toggle("collapsed");
+  if (window.innerWidth <= 768) {
+    if (!dom.sidebar.classList.contains("collapsed")) {
+      dom.sidebarBackdrop.classList.add("visible");
+    } else {
+      dom.sidebarBackdrop.classList.remove("visible");
+    }
+  }
 });
 
-$sidebarBackdrop.addEventListener("click", () => {
-    $sidebar.classList.add("collapsed");
-    $sidebarBackdrop.classList.remove("visible");
+dom.sidebarBackdrop.addEventListener("click", () => {
+  dom.sidebar.classList.add("collapsed");
+  dom.sidebarBackdrop.classList.remove("visible");
 });
 
-// New chat
-$btnNewChat.addEventListener("click", () => {
-    currentConvId = null;
-    $headerTitle.textContent = "Ollama Chat";
-    $chatMessages.innerHTML = "";
-    $chatMessages.appendChild($welcomeScreen);
-    showWelcome(true);
-    renderConversationsList();
-    $userInput.focus();
+// ── New chat ──
+dom.btnNewChat.addEventListener("click", newChat);
+
+// ── Theme ──
+dom.btnToggleTheme.addEventListener("click", toggleTheme);
+
+// ── Model dropdown ──
+dom.btnModelSelect.addEventListener("click", (e) => {
+  e.stopPropagation();
+  toggleModelDropdown();
 });
 
-// Models
-$btnRefreshModels.addEventListener("click", async () => {
-    toast("Recherche des modèles…", "info");
-    await loadModels();
-});
-
-$modelSelect.addEventListener("change", () => {
-    selectModel($modelSelect.value);
-});
-
-$btnModelSelect.addEventListener("click", () => {
-    $modelDropdown.classList.toggle("open");
-});
-
-// Close dropdown on outside click
 document.addEventListener("click", (e) => {
-    if (!e.target.closest("#btnModelSelect") && !e.target.closest("#modelDropdown")) {
-        $modelDropdown.classList.remove("open");
+  if (dropdownOpen && !dom.modelDropdown.contains(e.target)) {
+    closeModelDropdown();
+  }
+});
+
+// ── Settings modal ──
+dom.btnOpenSettings.addEventListener("click", () => {
+  dom.settingsModal.style.display = "flex";
+});
+
+dom.closeSettings.addEventListener("click", () => {
+  dom.settingsModal.style.display = "none";
+});
+
+dom.settingsModal.addEventListener("click", (e) => {
+  if (e.target === dom.settingsModal) {
+    dom.settingsModal.style.display = "none";
+  }
+});
+
+// ── Model select (dans settings) ──
+dom.modelSelect.addEventListener("change", () => {
+  currentModel = dom.modelSelect.value;
+  localStorage.setItem("ollama-model", currentModel);
+  dom.modelName.textContent = currentModel;
+  // Mettre à jour le dropdown
+  dom.modelDropdown.querySelectorAll(".model-option").forEach(o => {
+    o.classList.toggle("active", o.dataset.model === currentModel);
+  });
+  toast(`Modèle : ${currentModel}`, "info");
+});
+
+dom.btnRefreshModels.addEventListener("click", async () => {
+  toast("Rafraîchissement…", "info");
+  await loadModels();
+});
+
+dom.btnModelInfo.addEventListener("click", showModelInfo);
+
+// ── Model info modal ──
+dom.closeModelInfo.addEventListener("click", () => {
+  dom.modelInfoModal.style.display = "none";
+});
+
+dom.modelInfoModal.addEventListener("click", (e) => {
+  if (e.target === dom.modelInfoModal) {
+    dom.modelInfoModal.style.display = "none";
+  }
+});
+
+// ── Temperature slider ──
+dom.temperature.addEventListener("input", () => {
+  dom.tempValue.textContent = dom.temperature.value;
+});
+
+dom.temperature.addEventListener("change", () => {
+  localStorage.setItem("ollama-temperature", dom.temperature.value);
+});
+
+// ── Color swatches ──
+dom.colorSwatches.querySelectorAll(".color-swatch").forEach(sw => {
+  sw.addEventListener("click", () => {
+    dom.colorSwatches.querySelectorAll(".color-swatch").forEach(s => s.classList.remove("active"));
+    sw.classList.add("active");
+    setAccentColor(sw.dataset.color);
+  });
+});
+
+// ── System prompt ──
+dom.systemPrompt.addEventListener("input", () => {
+  localStorage.setItem("ollama-system-prompt", dom.systemPrompt.value);
+});
+
+// ── Export ──
+dom.btnExport.addEventListener("click", exportConversation);
+
+// ── Delete chat ──
+dom.btnDeleteChat.addEventListener("click", () => {
+  if (currentConvId) {
+    deleteConversation(currentConvId);
+  } else {
+    toast("Aucune conversation sélectionnée", "warning");
+  }
+});
+
+// ── Send / Stop ──
+dom.btnSend.addEventListener("click", () => {
+  sendMessage(dom.userInput.value);
+});
+
+dom.btnStop.addEventListener("click", stopGeneration);
+
+// ── Input textarea ──
+dom.userInput.addEventListener("input", () => {
+  autoResize();
+  dom.btnSend.disabled = !dom.userInput.value.trim();
+});
+
+dom.userInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    if (dom.userInput.value.trim() && !isGenerating) {
+      sendMessage(dom.userInput.value);
     }
+  }
 });
 
-$btnModelInfo.addEventListener("click", showModelInfo);
-
-$closeModelInfoModal.addEventListener("click", () => {
-    $modelInfoModal.style.display = "none";
-});
-
-$modelInfoModal.addEventListener("click", (e) => {
-    if (e.target === $modelInfoModal) $modelInfoModal.style.display = "none";
-});
-
-// Temperature
-$temperature.addEventListener("input", () => {
-    $tempValue.textContent = $temperature.value;
-});
-
-// Theme
-$themeToggle.addEventListener("click", toggleTheme);
-
-// Accent colors
-$colorSwatches.addEventListener("click", (e) => {
-    const swatch = e.target.closest(".color-swatch");
-    if (swatch) setAccentColor(swatch.dataset.color);
-});
-
-// Send
-$btnSend.addEventListener("click", () => {
-    sendMessage($userInput.value);
-});
-
-$btnStop.addEventListener("click", stopGeneration);
-
-// Input
-$userInput.addEventListener("input", autoResize);
-$userInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        if ($userInput.value.trim() && !isGenerating) {
-            sendMessage($userInput.value);
-        }
+// ── Suggestions ──
+document.querySelectorAll(".suggestion-chip").forEach(chip => {
+  chip.addEventListener("click", () => {
+    const prompt = chip.dataset.prompt;
+    if (prompt) {
+      dom.userInput.value = prompt;
+      autoResize();
+      sendMessage(prompt);
     }
+  });
 });
 
-// Suggestions
-document.querySelectorAll(".suggestion-chip").forEach((chip) => {
-    chip.addEventListener("click", () => {
-        const prompt = chip.dataset.prompt;
-        if (prompt) {
-            $userInput.value = prompt;
-            autoResize();
-            sendMessage(prompt);
-        }
-    });
-});
-
-// Export & Clear
-$btnExport.addEventListener("click", exportConversation);
-$btnClearChat.addEventListener("click", clearCurrentChat);
-
-// ============================================================
-//  Init
-// ============================================================
+// ════════════════════════════════════════════
+//  INITIALIZATION
+// ════════════════════════════════════════════
 
 (async function init() {
-    console.log("🚀 Ollama Chat — Initialisation");
+  console.log("Ollama Chat — Initialisation");
 
-    // Theme & accent
-    initTheme();
-    initAccentColor();
+  // Theme
+  initTheme();
+  initAccentColor();
 
-    // Restore system prompt
-    const savedPrompt = localStorage.getItem("ollama-system-prompt");
-    if (savedPrompt) $systemPrompt.value = savedPrompt;
-    $systemPrompt.addEventListener("input", () => {
-        localStorage.setItem("ollama-system-prompt", $systemPrompt.value);
-    });
+  // Restore settings
+  const savedPrompt = localStorage.getItem("ollama-system-prompt");
+  if (savedPrompt) dom.systemPrompt.value = savedPrompt;
 
-    // Restore temperature
-    const savedTemp = localStorage.getItem("ollama-temperature");
-    if (savedTemp) {
-        $temperature.value = savedTemp;
-        $tempValue.textContent = savedTemp;
+  const savedTemp = localStorage.getItem("ollama-temperature");
+  if (savedTemp) {
+    dom.temperature.value = savedTemp;
+    dom.tempValue.textContent = savedTemp;
+  }
+
+  // Check connection & load models
+  const connected = await checkConnection();
+  if (connected) {
+    await loadModels();
+  } else {
+    toast("Ollama non détecté. Lancez 'ollama serve' puis rechargez.", "error");
+  }
+
+  // Render conversations
+  renderConversations();
+  showWelcome(true);
+
+  // Periodic check
+  setInterval(async () => {
+    const ok = await checkConnection();
+    // Si on était déconnecté et maintenant connecté, recharger les modèles
+    if (ok && dom.modelSelect.options.length <= 1) {
+      await loadModels();
     }
-    $temperature.addEventListener("change", () => {
-        localStorage.setItem("ollama-temperature", $temperature.value);
-    });
+  }, 15000);
 
-    // Check connection
-    const connected = await checkConnection();
-    if (connected) {
-        await loadModels();
-    }
+  // Focus
+  dom.userInput.focus();
 
-    // Render conversations
-    renderConversationsList();
-    showWelcome(true);
-
-    // Periodic connection check
-    setInterval(checkConnection, 15000);
-
-    // Focus input
-    $userInput.focus();
-
-    console.log("✅ Initialisation terminée");
+  console.log("Initialisation terminée");
 })();
