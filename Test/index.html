@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ollama Chat Local</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <span class="logo-icon">🦙</span>
+                    <h1>Ollama Chat</h1>
+                </div>
+                <button id="new-chat-btn" class="btn-new-chat">+ Nouveau Chat</button>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>Modèle</h3>
+                <select id="model-select" class="model-select">
+                    <option value="">Chargement...</option>
+                </select>
+                <button id="refresh-models-btn" class="btn-refresh" title="Rafraîchir les modèles">🔄</button>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>Paramètres</h3>
+                <div class="param-group">
+                    <label for="temperature">Température: <span id="temp-value">0.7</span></label>
+                    <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7">
+                </div>
+                <div class="param-group">
+                    <label for="max-tokens">Max Tokens</label>
+                    <input type="number" id="max-tokens" value="2048" min="64" max="8192" step="64">
+                </div>
+                <div class="param-group">
+                    <label for="system-prompt">Prompt Système</label>
+                    <textarea id="system-prompt" rows="3" placeholder="Tu es un assistant utile..."></textarea>
+                </div>
+            </div>
+
+            <div class="sidebar-section conversations-list">
+                <h3>Historique</h3>
+                <div id="conversations-container"></div>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="connection-status" id="connection-status">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Vérification...</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Zone principale -->
+        <main class="main-area">
+            <div class="chat-header">
+                <h2 id="chat-title">Nouvelle conversation</h2>
+                <div class="header-actions">
+                    <button id="export-btn" class="btn-icon" title="Exporter la conversation">📥</button>
+                    <button id="delete-chat-btn" class="btn-icon" title="Supprimer la conversation">🗑️</button>
+                </div>
+            </div>
+
+            <div class="chat-messages" id="chat-messages">
+                <div class="welcome-screen" id="welcome-screen">
+                    <div class="welcome-icon">🦙</div>
+                    <h2>Bienvenue sur Ollama Chat</h2>
+                    <p>Commencez une conversation avec vos modèles locaux</p>
+                    <div class="suggestions">
+                        <button class="suggestion-chip" data-prompt="Explique-moi le fonctionnement des réseaux de neurones">
+                            🧠 Réseaux de neurones
+                        </button>
+                        <button class="suggestion-chip" data-prompt="Écris-moi une fonction Python de tri rapide avec des commentaires">
+                            🐍 Code Python
+                        </button>
+                        <button class="suggestion-chip" data-prompt="Quels sont les principes SOLID en programmation ?">
+                            📐 Principes SOLID
+                        </button>
+                        <button class="suggestion-chip" data-prompt="Résume-moi les avantages de Docker pour le développement">
+                            🐳 Docker
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-input-area">
+                <div class="typing-indicator" id="typing-indicator" style="display: none;">
+                    <div class="typing-dots">
+                        <span></span><span></span><span></span>
+                    </div>
+                    <span>Le modèle réfléchit...</span>
+                </div>
+                <form id="chat-form" class="chat-form">
+                    <div class="input-wrapper">
+                        <textarea 
+                            id="user-input" 
+                            placeholder="Écrivez votre message... (Entrée pour envoyer, Shift+Entrée pour sauter une ligne)" 
+                            rows="1"
+                            autofocus
+                        ></textarea>
+                        <button type="submit" id="send-btn" class="btn-send" disabled>
+                            <span class="send-icon">➤</span>
+                        </button>
+                        <button type="button" id="stop-btn" class="btn-stop" style="display: none;">
+                            ■
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal info modèle -->
+    <div class="modal-overlay" id="model-info-modal" style="display: none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Informations du modèle</h3>
+                <button class="modal-close" id="close-modal">✕</button>
+            </div>
+            <div class="modal-body" id="model-info-content"></div>
+        </div>
+    </div>
+
+    <!-- Toast notifications -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>

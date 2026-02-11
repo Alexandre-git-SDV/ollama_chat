@@ -260,4 +260,54 @@ function formatBytes(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
+async function checkConnection() {
+    const dot = $connectionStatus.querySelector(".status-dot");
+    const txt = $connectionStatus.querySelector(".status-text");
+    
+    try {
+        // On tente un simple GET sur /api/tags
+        const res = await fetch(`${OLLAMA_BASE}/api/tags`, {
+            method: "GET",
+            signal: AbortSignal.timeout(5000), // timeout 5s
+        });
+        
+        if (res.ok) {
+            dot.className = "status-dot connected";
+            txt.textContent = "Connecté à Ollama";
+            console.log("✅ Ollama connecté sur", OLLAMA_BASE);
+            return true;
+        } else {
+            throw new Error(`HTTP ${res.status}`);
+        }
+    } catch (err) {
+        dot.className = "status-dot disconnected";
+        txt.textContent = "Ollama non détecté";
+        console.warn("❌ Ollama non accessible:", err.message);
+        return false;
+    }
+}
+
+(async function init() {
+    console.log("🦙 Ollama Chat - Initialisation...");
+    console.log("🔗 URL Ollama:", OLLAMA_BASE);
+
+    const connected = await checkConnection();
+
+    if (connected) {
+        await loadModels();
+    } else {
+        toast(
+            "Ollama non détecté sur " + OLLAMA_BASE + ". Lancez 'ollama serve' puis rechargez la page.",
+            "error"
+        );
+    }
+
+    renderConversationsList();
+    showWelcome(true);
+
+    // Vérification périodique de la connexion
+    setInterval(checkConnection, 15000);
+})();
+
+
 module.exports = router;
