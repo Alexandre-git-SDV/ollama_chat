@@ -1,64 +1,75 @@
 /**
  * ============================================
- *  OLLAMA CHAT APP — Serveur Principal
+ *  SERVEUR — Point d'entrée
  * ============================================
  */
 
-const express = require('express');
-const path    = require('path');
-const fs      = require('fs');
-const { Ollama } = require('ollama');
+const app            = require('./app');
+const config         = require('./config/env');
+const logger         = require('./utils/logger');
+const ollamaService  = require('./services/ollama.service');
 
-// ── Instance Ollama client officiel ─────────
-const ollama = new Ollama({ host: 'http://127.0.0.1:11434' });
+// ══════════════════════════════════════════
+//  Démarrage
+// ══════════════════════════════════════════
 
-// ── Express App ─────────────────────────────
-const app  = express();
-const PORT = process.env.PORT || 3000;
+async function start() {
+  logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  logger.info('  🦙 Ollama Chat — Démarrage du serveur');
+  logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-// Créer le dossier conversations s'il n'existe pas
-const convDir = path.join(__dirname, 'conversations');
-if (!fs.existsSync(convDir)) {
-  fs.mkdirSync(convDir, { recursive: true });
+  // ── Vérification Ollama ──
+  logger.info(`Connexion à Ollama: ${config.ollamaHost}`);
+  const connected = await ollamaService.checkConnection();
+
+  if (connected) {
+    logger.success('Ollama est connecté !');
+
+    // Afficher les modèles disponibles
+    try {
+      const models = await ollamaService.listModels();
+      logger.info(`${models.length} modèle(s) disponible(s):`);
+      models.forEach(m => {
+        const sizeGB = (m.size / 1e9).toFixed(1);
+        logger.info(`  • ${m.name} (${sizeGB} GB)`);
+      });
+    } catch (err) {
+      logger.warn('Impossible de lister les modèles:', err.message);
+    }
+
+    // Afficher la version
+    try {
+      const version = await ollamaService.getVersion();
+      if (version) logger.info(`Version Ollama: ${version}`);
+    } catch (_) { /* ignore */ }
+
+  } else {
+    logger.warn('⚠️  Ollama non détecté ! Lancez "ollama serve" pour activer les fonctionnalités.');
+  }
+
+  // ── Lancement du serveur HTTP ──
+  app.listen(config.port, config.host, () => {
+    logger.success(`Serveur démarré sur http://${config.host}:${config.port}`);
+    logger.info(`Dossier public: ${config.publicDir}`);
+    logger.info(`Conversations:  ${config.conversationsDir}`);
+    logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  });
 }
 
-// ── Middlewares ──────────────────────────────
-app.use(express.json({ limit: '5mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
-
-// ── Partager l'instance ollama avec les routes
-app.set('ollama', ollama);
-
-// ── Routes API ──────────────────────────────
-app.use('/api', require('./routes/models'));
-app.use('/api/chat', require('./routes/chat'));
-
-// ── Health check ────────────────────────────
-app.get('/api/health', async (_req, res) => {
-  try {
-    const response = await ollama.list();
-    res.json({
-      status: 'ok',
-      ollama: true,
-      modelsCount: (response.models || []).length
-    });
-  } catch (err) {
-    res.json({
-      status: 'ok',
-      ollama: false,
-      error: err.message
-    });
-  }
+// ── Gestion des erreurs non attrapées ──
+process.on('uncaughtException', (err) => {
+  logger.error('Exception non attrapée:', err.message);
+  logger.debug(err.stack);
+  process.exit(1);
 });
 
-// ── Fallback SPA ────────────────────────────
-// ⚠️  Express 5 / path-to-regexp v8+ exige un paramètre nommé
-//     pour les wildcards : {*name} au lieu de * tout seul
-app.get('/{*splat}', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+process.on('unhandledRejection', (reason) => {
+  logger.error('Promesse rejetée non gérée:', reason);
 });
 
-// ── Démarrage ───────────────────────────────
+// ── Go ! ──
+start();
+/*
 app.listen(PORT, () => {
   console.log('');
   console.log('  ╔═══════════════════════════════════════════╗');
@@ -68,4 +79,4 @@ app.listen(PORT, () => {
   console.log('  ║   📚  Client: ollama-js officiel          ║');
   console.log('  ╚═══════════════════════════════════════════╝');
   console.log('');
-});
+});*/
