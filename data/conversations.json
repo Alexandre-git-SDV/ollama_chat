@@ -1,0 +1,46 @@
+{
+  "44768738-313b-4d59-a470-407d769cfba6": {
+    "id": "44768738-313b-4d59-a470-407d769cfba6",
+    "title": "Nouvelle conversation",
+    "model": "mistral:latest",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Test"
+      },
+      {
+        "role": "assistant",
+        "content": " Hello! How can I assist you today? Here to help with any questions or tasks you might have.\n\nIf you'd like, you can test the capabilities of this model by asking it a variety of things such as answering trivia questions, explaining complex concepts, providing recommendations, and more. Let me know what you need help with!",
+        "meta": {
+          "model": "mistral:latest",
+          "duration": "14.2s",
+          "tokens": 72
+        }
+      }
+    ],
+    "createdAt": "2026-02-11T21:40:25.410Z",
+    "updatedAt": "2026-02-11T21:40:39.614Z"
+  },
+  "9a3e16a6-e4b6-4b0b-b3b2-49de62f5ee96": {
+    "id": "9a3e16a6-e4b6-4b0b-b3b2-49de62f5ee96",
+    "title": "Nouvelle conversation",
+    "model": "gemma3:27b",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Test"
+      },
+      {
+        "role": "assistant",
+        "content": "Okay! I see your \"Test\" message. \n\nIs there anything I can *do* for you? Are you:\n\n* **Testing if I'm working?** (Yes, I am!)\n* **Wanting to start a conversation?** (Great! Just tell me what you'd like to talk about.)\n* **Trying out a prompt?** (Feel free to give me one!)\n* **Something else?**\n\nJust let me know how I can help. 😊\n",
+        "meta": {
+          "model": "gemma3:27b",
+          "duration": "96.8s",
+          "tokens": 106
+        }
+      }
+    ],
+    "createdAt": "2026-02-11T21:47:54.016Z",
+    "updatedAt": "2026-02-11T21:49:30.818Z"
+  }
+}
