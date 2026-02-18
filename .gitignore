@@ -1,3 +1,72 @@
-node_modules
-./node_modules
+# =====================
+# Dépendances
+# =====================
+node_modules/
+
+# =====================
+# Logs
+# =====================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =====================
+# Variables d'environnement
+# =====================
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# =====================
+# Build / Production
+# =====================
+dist/
+build/
+out/
+
+# =====================
+# Cache
+# =====================
+.cache/
+.tmp/
+.temp/
+
+# =====================
+# OS
+# =====================
+.DS_Store
+Thumbs.db
+
+# =====================
+# IDE / Éditeurs
+# =====================
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+
+# =====================
+# Tests / Coverage
+# =====================
+coverage/
+
+# =====================
+# Package managers
+# =====================
 package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# =====================
+# Runtime
+# =====================
+.pid
+*.pid
+*.seed
+*.pid.lock
