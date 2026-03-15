@@ -23,7 +23,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = dirname(__filename);
 
 // ── Config ──
-const PORT        = process.env.PORT || 3000;
+const PORT        = process.env.PORT || 3001;
 const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://127.0.0.1:11434';
 const DATA_DIR    = join(__dirname, 'data');
 const CONVS_FILE  = join(DATA_DIR, 'conversations.json');
