@@ -2,15 +2,14 @@ import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    const response = await fetch(
-      `${process.env.OLLAMA_BASE_URL || 'http://localhost:11434'}/api/version`
+    const res = await fetch(
+      `${process.env.OLLAMA_BASE_URL || 'http://localhost:11434'}/api/version`,
+      { signal: AbortSignal.timeout(5000) }
     );
-
-    if (response.ok) {
-      const data = await response.json();
+    if (res.ok) {
+      const data = await res.json();
       return NextResponse.json({ version: data.version });
     }
-
     return NextResponse.json({ version: null }, { status: 503 });
   } catch {
     return NextResponse.json({ version: null }, { status: 503 });

@@ -49,7 +49,7 @@ export default function Sidebar({
   useEffect(() => {
     const check = async () => {
       try {
-        const res = await fetch('/api/health');
+        const res = await fetch('/api/ollama/health');
         const data = await res.json();
         setOllamaConnected(data.ollama);
       } catch {
@@ -64,7 +64,7 @@ export default function Sidebar({
   useEffect(() => {
     const fetchModels = async () => {
       try {
-        const res = await fetch('/api/models');
+        const res = await fetch('/api/ollama/tags');
         const data = await res.json();
         if (data.models?.length) {
           const names = data.models.map((m: { name: string }) => m.name);
@@ -76,7 +76,7 @@ export default function Sidebar({
       }
     };
     fetchModels();
-  }, []);
+  }, [selectedModel, onModelChange]);
 
   return (
     <aside className="w-60 h-screen flex flex-col bg-bg-sidebar border-r border-border-subtle shrink-0">
