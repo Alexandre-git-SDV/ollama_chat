@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg-primary: #0a0a0f;
+  --color-bg-sidebar: #0f0f1a;
+  --color-bg-card: #1a1a2e;
+  --color-bg-input: #12121f;
+  --color-bg-hover: #1e1e35;
+  --color-border-subtle: #2a2a3e;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #e2e2e8;
+  --color-text-muted: #8888a0;
+  --color-text-placeholder: #55556a;
+  --color-text-label: #6b6b80;
+}
+
+:root {
+  --accent: #8b5cf6;
+  --accent-glow: rgba(139, 92, 246, 0.15);
+  --violet: #8b5cf6;
+}
+
+body {
+  @apply bg-bg-primary text-text-secondary;
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--violet) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-bg {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--violet) 100%);
+}
+
+.accent-border-focus:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+  outline: none;
+}
+
+.dot-pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0a0f;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a2a3e;
+  border-radius: 3px;
+}

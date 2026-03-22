@@ -1,23 +1,31 @@
 {
-  "name": "ollama-chat-app",
-  "version": "1.0.0",
-  "description": "Application de chat locale avec Ollama",
-  "main": "server.js",
+  "name": "ollama-chat",
+  "version": "0.1.0",
+  "private": true,
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
   },
   "dependencies": {
-    "cors": "^2.8.6",
-    "express": "^4.21.0",
+    "mongoose": "^9.3.1",
+    "next": "16.2.1",
     "ollama": "^0.6.3",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
     "uuid": "^13.0.0"
   },
   "devDependencies": {
-    "nodemon": "3.1.11"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "module"
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/uuid": "^10.0.0",
+    "babel-plugin-react-compiler": "1.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.1",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
 }
