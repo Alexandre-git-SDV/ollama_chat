@@ -1,0 +1,80 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ollama-chat-app
+    ports:
+      - '3000:3000'
+    env_file:
+      - .env.docker
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+      DEFAULT_MODEL: llama3.2
+      MONGODB_URI: mongodb://mongo:27017/ollama_chat
+    depends_on:
+      - ollama
+      - mongo
+    networks:
+      - ollama-chat-network
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama-chat-ollama
+    ports:
+      - '11434:11434'
+    volumes:
+      - ollama-models:/root/.ollama
+    networks:
+      - ollama-chat-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  mongo:
+    image: mongo:7
+    container_name: ollama-chat-mongo
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo-data:/data/db
+      - mongo-config:/data/configdb
+    networks:
+      - ollama-chat-network
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: ollama_chat
+
+  # Optional: MongoDB Express (admin UI)
+  mongo-express:
+    image: mongo-express:latest
+    container_name: ollama-chat-mongo-express
+    ports:
+      - '8081:8081'
+    environment:
+      ME_CONFIG_MONGODB_SERVER: mongo
+      ME_CONFIG_MONGODB_PORT: 27017
+      ME_CONFIG_BASICAUTH_USERNAME: admin
+      ME_CONFIG_BASICAUTH_PASSWORD: admin
+    depends_on:
+      - mongo
+    networks:
+      - ollama-chat-network
+    restart: unless-stopped
+    profiles:
+      - admin
+
+networks:
+  ollama-chat-network:
+    driver: bridge
+
+volumes:
+  ollama-models:
+  mongo-data:
+  mongo-config:
