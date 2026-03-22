@@ -9,9 +9,9 @@ services:
     env_file:
       - .env.docker
     environment:
-      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
-      DEFAULT_MODEL: llama3.2
-      MONGODB_URI: ${MONGODB_URI:-mongodb://host.docker.internal:27017/ollama_chat}
+      - OLLAMA_BASE_URL
+      - DEFAULT_MODEL
+      - MONGODB_URI
     depends_on:
       ollama:
         condition: service_started
@@ -28,8 +28,8 @@ services:
   ollama:
     image: ollama/ollama:latest
     container_name: ollama-chat-ollama
-    ports:
-      - '11434:11434'
+    expose:
+      - '11434'
     volumes:
       - ollama-models:/root/.ollama
     networks:

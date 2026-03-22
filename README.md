@@ -42,11 +42,16 @@ Ouvrir [http://localhost:3000](http://localhost:3000).
 ### Avec Docker Compose (recommandé)
 
 ```bash
-# Tout lancer (app + Ollama + MongoDB)
-docker compose up -d
+# Demarrage intelligent:
+# - utilise Ollama/Mongo de la machine si detectes et accessibles
+# - demarre seulement les conteneurs manquants
+pnpm run docker:up:auto
 
-# Avec l'admin MongoDB Express
-docker compose --profile admin up -d
+# Arret
+docker compose down
+
+# Avec l'admin MongoDB Express (optionnel)
+docker compose --profile admin up -d mongo-express
 ```
 
 | Service | URL |
@@ -98,6 +103,34 @@ npm run test:coverage # Couverture de code
 | POST | `/api/conversations/[id]/save` | Ajouter des messages |
 
 ## Variables d'environnement
+
+Les variables Docker sont isolees des variables Next.js locales:
+
+- `.env.docker`: valeurs Docker non sensibles (versionnables)
+- `.env.docker.local`: secrets Docker locaux (non versionne)
+- `.env.docker.runtime`: genere automatiquement par `scripts/docker-up-auto.sh` (non versionne)
+
+Preparation conseillee:
+
+```bash
+cp .env.docker.local.example .env.docker.local
+# puis editer .env.docker.local avec tes valeurs privees
+```
+
+Pour que le conteneur puisse joindre Ollama installe sur l'hote Linux,
+Ollama doit ecouter sur `0.0.0.0` (pas seulement `127.0.0.1`):
+
+```bash
+OLLAMA_HOST=0.0.0.0:11434 ollama serve
+```
+
+Verification:
+
+```bash
+ss -ltn | grep 11434
+```
+
+Tu dois voir `0.0.0.0:11434` ou `[::]:11434`.
 
 | Variable | Description | Défaut |
 |----------|-------------|--------|
