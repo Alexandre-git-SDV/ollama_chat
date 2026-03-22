@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import StarLogo from '@/components/ui/StarLogo';
 import ChatArea from '@/components/chat/ChatArea';
 import {
@@ -11,16 +11,18 @@ import {
   PenIcon,
   SearchIcon,
 } from '@/components/ui/Icons';
-import { useChat } from '@/hooks/useChat';
+import { useChat, createMessage } from '@/hooks/useChat';
 import { Message, ChatSettings, Conversation } from '@/types/chat';
 
 interface Props {
   onToggleSidebar: () => void;
   settings: ChatSettings;
   conversation: Conversation | null;
-  onEnsureConversation: () => string;
+  onEnsureConversation: () => Promise<string>;
   onAddMessage: (convId: string, msg: Message) => void;
   onUpdateAssistant: (convId: string, content: string) => void;
+  onSaveConversation: (convId: string) => Promise<void>;
+  onGenerateTitle: (convId: string, messages: Message[]) => void;
 }
 
 const suggestions = [
@@ -37,27 +39,26 @@ export default function MainContent({
   onEnsureConversation,
   onAddMessage,
   onUpdateAssistant,
+  onSaveConversation,
+  onGenerateTitle,
 }: Props) {
   const [input, setInput] = useState('');
 
   const convId = conversation?.id || '';
   const messages = conversation?.messages || [];
 
-  const { isStreaming, send, stop } = useChat({
+  const { isStreaming, sendMessages, stop } = useChat({
     settings,
     messages,
-    onAddMessage: (msg) => {
-      const id = convId || onEnsureConversation();
-      onAddMessage(id, msg);
-    },
-    onUpdateAssistant: (content) => {
-      if (convId) onUpdateAssistant(convId, content);
+    onUpdateAssistant,
+    onStreamEnd: () => {
+      if (convId) onSaveConversation(convId);
     },
   });
 
   const hasMessages = messages.length > 0;
 
-  const handleSend = (text?: string) => {
+  const handleSend = useCallback(async (text?: string) => {
     const value = text || input;
     if (isStreaming) {
       stop();
@@ -65,12 +66,26 @@ export default function MainContent({
     }
     if (!value.trim()) return;
 
-    // Ensure conversation exists
-    if (!convId) onEnsureConversation();
+    let id = convId;
+    if (!id) {
+      id = await onEnsureConversation();
+    }
 
-    send(value);
+    const userMsg = createMessage('user', value.trim());
+    const assistantMsg = createMessage('assistant', '', settings.model);
+
+    const isFirstMessage = messages.filter((m) => m.role === 'user').length === 0;
+    onAddMessage(id, userMsg);
+    onAddMessage(id, assistantMsg);
+
+    if (isFirstMessage) {
+      onGenerateTitle(id, [...messages, userMsg]);
+    }
+
+    const allMessages = [...messages, userMsg];
+    sendMessages(id, allMessages);
     setInput('');
-  };
+  }, [input, isStreaming, convId, messages, onEnsureConversation, onAddMessage, onGenerateTitle, sendMessages, stop, settings.model]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -81,40 +96,38 @@ export default function MainContent({
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden">
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
+        <div className="flex items-center gap-3">
           <button
             onClick={onToggleSidebar}
-            className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-bg-hover transition-colors"
+            className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-bg-hover transition-colors"
           >
-            <SidebarToggleIcon size={18} />
+            <SidebarToggleIcon size={20} />
           </button>
-          <span className="text-sm text-text-muted">
+          <span className="text-sm text-text-muted font-medium">
             {settings.model || 'Aucun modèle'}
           </span>
         </div>
         {conversation && (
-          <span className="text-xs text-text-muted truncate max-w-xs">
+          <span className="text-sm text-text-muted truncate max-w-sm font-medium">
             {conversation.title}
           </span>
         )}
       </div>
 
-      {/* Zone centrale */}
       <div className="flex-1 overflow-y-auto">
         {hasMessages ? (
           <ChatArea messages={messages} isStreaming={isStreaming} />
         ) : (
           <div className="h-full flex items-center justify-center">
             <div className="text-center max-w-lg px-4">
-              <div className="flex justify-center mb-5">
-                <StarLogo size={48} />
+              <div className="flex justify-center mb-6">
+                <StarLogo size={56} />
               </div>
-              <h2 className="text-xl font-semibold text-text-primary mb-2">
+              <h2 className="text-2xl font-semibold text-text-primary mb-3">
                 Comment puis-je vous aider ?
               </h2>
-              <p className="text-sm text-text-muted mb-8">
+              <p className="text-base text-text-muted mb-8">
                 Choisissez une suggestion ou écrivez votre message.
               </p>
               <div className="flex flex-wrap justify-center gap-3">
@@ -124,13 +137,13 @@ export default function MainContent({
                     <button
                       key={i}
                       onClick={() => handleSend(s.label)}
-                      className="flex flex-col items-center gap-2 p-4 w-36 rounded-xl bg-bg-card border border-border-subtle hover:bg-bg-hover hover:border-[var(--accent)] transition-all duration-200"
+                      className="flex flex-col items-center gap-3 p-5 w-40 rounded-xl bg-bg-card border border-border-subtle hover:bg-bg-hover hover:border-[var(--accent)] transition-all duration-200"
                     >
-                      <Icon size={24} color="var(--accent)" />
-                      <span className="text-xs font-medium text-text-secondary">
+                      <Icon size={28} color="var(--accent)" />
+                      <span className="text-sm font-semibold text-text-secondary">
                         {s.label}
                       </span>
-                      <span className="text-[10px] text-text-muted leading-tight">
+                      <span className="text-xs text-text-muted leading-tight">
                         {s.desc}
                       </span>
                     </button>
@@ -142,8 +155,7 @@ export default function MainContent({
         )}
       </div>
 
-      {/* Input */}
-      <div className="p-4">
+      <div className="p-5">
         <div className="relative max-w-4xl mx-auto">
           <textarea
             rows={1}
@@ -151,20 +163,20 @@ export default function MainContent({
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Écrivez votre message... (Entrée pour envoyer)"
-            className="w-full bg-bg-input border border-border-subtle rounded-xl px-4 py-3 pr-12 text-sm text-text-secondary placeholder:text-text-placeholder resize-none accent-border-focus transition-all duration-200"
+            className="w-full bg-bg-input border border-border-subtle rounded-xl px-5 py-4 pr-14 text-base text-text-secondary placeholder:text-text-placeholder resize-none accent-border-focus transition-all duration-200"
           />
           <button
             onClick={() => handleSend()}
-            className={`absolute right-3 bottom-3 w-8 h-8 rounded-full flex items-center justify-center text-white transition-all duration-150 ${
+            className={`absolute right-4 bottom-4 w-10 h-10 rounded-full flex items-center justify-center text-white transition-all duration-150 ${
               isStreaming
                 ? 'bg-red-500 hover:bg-red-600'
                 : 'gradient-bg hover:brightness-110'
             }`}
           >
             {isStreaming ? (
-              <span className="w-3 h-3 bg-white rounded-sm" />
+              <span className="w-3.5 h-3.5 bg-white rounded-sm" />
             ) : (
-              <SendIcon size={16} color="white" />
+              <SendIcon size={18} color="white" />
             )}
           </button>
         </div>

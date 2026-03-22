@@ -15,24 +15,27 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     const userId = getUserId(req);
     const body = await req.json();
 
-    const conversation = await ConversationModel.findOne({ _id: id, userId });
+    const updateData: Record<string, unknown> = {};
+
+    if (body.messages && Array.isArray(body.messages)) {
+      updateData.messages = body.messages;
+    }
+    if (body.title !== undefined) updateData.title = body.title;
+    if (body.temperature !== undefined) updateData.temperature = body.temperature;
+    if (body.maxTokens !== undefined) updateData.maxTokens = body.maxTokens;
+    if (body.systemPrompt !== undefined) updateData.systemPrompt = body.systemPrompt;
+    if (body.modelName !== undefined) updateData.modelName = body.modelName;
+
+    const conversation = await ConversationModel.findOneAndUpdate(
+      { _id: id, userId },
+      { $set: updateData },
+      { new: true, runValidators: true }
+    );
 
     if (!conversation) {
       return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
     }
 
-    if (body.messages && Array.isArray(body.messages)) {
-      conversation.messages.push(...body.messages);
-    }
-    if (body.title) {
-      conversation.title = body.title;
-    }
-    if (body.temperature !== undefined) conversation.temperature = body.temperature;
-    if (body.maxTokens !== undefined) conversation.maxTokens = body.maxTokens;
-    if (body.systemPrompt !== undefined) conversation.systemPrompt = body.systemPrompt;
-    if (body.modelName !== undefined) conversation.modelName = body.modelName;
-
-    await conversation.save();
     return NextResponse.json(conversation);
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });

@@ -130,6 +130,24 @@ export const PenIcon = ({ size = 16, className = '', color = 'currentColor' }: I
   </svg>
 );
 
+export const LoaderIcon = ({ size = 16, className = '', color = 'currentColor' }: IconProps) => (
+  <svg className={`${className} animate-spin`} width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+    <path strokeWidth={2} d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+  </svg>
+);
+
+export const CheckIcon = ({ size = 16, className = '', color = 'currentColor' }: IconProps) => (
+  <svg className={className} width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+    <path strokeWidth={2} d="M20 6L9 17l-5-5" />
+  </svg>
+);
+
+export const XIcon = ({ size = 16, className = '', color = 'currentColor' }: IconProps) => (
+  <svg className={className} width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+    <path strokeWidth={2} d="M18 6L6 18M6 6l12 12" />
+  </svg>
+);
+
 export const SearchIcon = ({ size = 16, className = '', color = 'currentColor' }: IconProps) => (
   <svg className={className} width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
     <path strokeWidth={2} d="M21 21l-4.35-4.35M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" />

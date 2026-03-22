@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
 import MainContent from '@/components/layout/MainContent';
 import { useConversations } from '@/hooks/useConversations';
+import { Message } from '@/types/chat';
 
 export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -19,18 +20,39 @@ export default function Home() {
     createConversation,
     switchConversation,
     deleteConversation,
+    renameConversation,
     addMessage,
     updateLastAssistantMessage,
+    saveConversation,
+    isLoading,
+    mounted,
+    generateTitle,
   } = useConversations();
 
-  const handleNewConversation = useCallback(() => {
-    createConversation(model);
-  }, [createConversation, model]);
+  const [sidebarWidth, setSidebarWidth] = useState(288);
 
-  const handleEnsureConversation = useCallback((): string => {
+  const handleNewConversation = useCallback(() => {
+    createConversation(model, temperature, maxTokens, systemPrompt);
+  }, [createConversation, model, temperature, maxTokens, systemPrompt]);
+
+  const handleEnsureConversation = useCallback(async (): Promise<string> => {
     if (activeId) return activeId;
-    return createConversation(model);
-  }, [activeId, createConversation, model]);
+    return createConversation(model, temperature, maxTokens, systemPrompt);
+  }, [activeId, createConversation, model, temperature, maxTokens, systemPrompt]);
+
+  const handleSaveConversation = useCallback(
+    async (convId: string) => {
+      await saveConversation(convId);
+    },
+    [saveConversation]
+  );
+
+  const handleGenerateTitle = useCallback(
+    async (convId: string, messages: Message[]) => {
+      await generateTitle(convId, messages, model);
+    },
+    [generateTitle, model]
+  );
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -49,6 +71,11 @@ export default function Home() {
           onNewConversation={handleNewConversation}
           onSwitchConversation={switchConversation}
           onDeleteConversation={deleteConversation}
+          onRenameConversation={renameConversation}
+          isLoading={isLoading}
+          mounted={mounted}
+          sidebarWidth={sidebarWidth}
+          onSidebarWidthChange={setSidebarWidth}
         />
       )}
       <MainContent
@@ -58,6 +85,8 @@ export default function Home() {
         onEnsureConversation={handleEnsureConversation}
         onAddMessage={addMessage}
         onUpdateAssistant={updateLastAssistantMessage}
+        onSaveConversation={handleSaveConversation}
+        onGenerateTitle={handleGenerateTitle}
       />
     </div>
   );
