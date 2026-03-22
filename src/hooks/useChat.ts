@@ -4,13 +4,20 @@ import { useState, useCallback, useRef } from 'react';
 import { Message, ChatSettings } from '@/types/chat';
 
 function uid() {
-  return Math.random().toString(36).slice(2, 10);
+  return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 }
 
-export function useChat(settings: ChatSettings) {
-  const [messages, setMessages] = useState<Message[]>([]);
+interface UseChatOptions {
+  settings: ChatSettings;
+  messages: Message[];
+  onAddMessage: (msg: Message) => void;
+  onUpdateAssistant: (content: string) => void;
+}
+
+export function useChat({ settings, messages, onAddMessage, onUpdateAssistant }: UseChatOptions) {
   const [isStreaming, setIsStreaming] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const accumulatorRef = useRef('');
 
   const send = useCallback(
     async (content: string) => {
@@ -20,19 +27,21 @@ export function useChat(settings: ChatSettings) {
         id: uid(),
         role: 'user',
         content: content.trim(),
-        createdAt: new Date(),
+        createdAt: new Date().toISOString(),
       };
+      onAddMessage(userMsg);
 
       const assistantMsg: Message = {
         id: uid(),
         role: 'assistant',
         content: '',
         model: settings.model,
-        createdAt: new Date(),
+        createdAt: new Date().toISOString(),
       };
+      onAddMessage(assistantMsg);
 
-      setMessages((prev) => [...prev, userMsg, assistantMsg]);
       setIsStreaming(true);
+      accumulatorRef.current = '';
 
       const controller = new AbortController();
       abortRef.current = controller;
@@ -69,14 +78,8 @@ export function useChat(settings: ChatSettings) {
             try {
               const data = JSON.parse(line.slice(6));
               if (data.content) {
-                setMessages((prev) => {
-                  const copy = [...prev];
-                  const last = copy[copy.length - 1];
-                  if (last.role === 'assistant') {
-                    copy[copy.length - 1] = { ...last, content: last.content + data.content };
-                  }
-                  return copy;
-                });
+                accumulatorRef.current += data.content;
+                onUpdateAssistant(accumulatorRef.current);
               }
             } catch {
               // skip
@@ -85,21 +88,16 @@ export function useChat(settings: ChatSettings) {
         }
       } catch (err: unknown) {
         if (err instanceof Error && err.name !== 'AbortError') {
-          setMessages((prev) => {
-            const copy = [...prev];
-            const last = copy[copy.length - 1];
-            if (last.role === 'assistant' && !last.content) {
-              copy[copy.length - 1] = { ...last, content: '❌ Erreur de connexion à Ollama.' };
-            }
-            return copy;
-          });
+          if (!accumulatorRef.current) {
+            onUpdateAssistant('❌ Erreur de connexion à Ollama.');
+          }
         }
       } finally {
         setIsStreaming(false);
         abortRef.current = null;
       }
     },
-    [messages, settings, isStreaming]
+    [messages, settings, isStreaming, onAddMessage, onUpdateAssistant]
   );
 
   const stop = useCallback(() => {
@@ -107,11 +105,5 @@ export function useChat(settings: ChatSettings) {
     setIsStreaming(false);
   }, []);
 
-  const clear = useCallback(() => {
-    abortRef.current?.abort();
-    setMessages([]);
-    setIsStreaming(false);
-  }, []);
-
-  return { messages, isStreaming, send, stop, clear };
+  return { isStreaming, send, stop };
 }

@@ -1,9 +1,9 @@
 export interface Message {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   content: string;
   model?: string;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export interface Conversation {
@@ -11,8 +11,8 @@ export interface Conversation {
   title: string;
   messages: Message[];
   model: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ChatSettings {
@@ -20,4 +20,11 @@ export interface ChatSettings {
   temperature: number;
   maxTokens: number;
   systemPrompt: string;
+}
+
+export interface OllamaModel {
+  name: string;
+  size: number;
+  digest: string;
+  modified_at: string;
 }

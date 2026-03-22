@@ -111,3 +111,27 @@ export const SolidIcon = ({ size = 16, className = '', color = 'currentColor' }:
     <path strokeWidth={1.5} d="M12 22V15.5M12 15.5L2 8.5M12 15.5L22 8.5" />
   </svg>
 );
+
+export const CodeIcon = ({ size = 16, className = '', color = 'currentColor' }: IconProps) => (
+  <svg className={className} width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+    <path strokeWidth={2} d="m16 18 6-6-6-6M8 6l-6 6 6 6" />
+  </svg>
+);
+
+export const LightBulbIcon = ({ size = 16, className = '', color = 'currentColor' }: IconProps) => (
+  <svg className={className} width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+    <path strokeWidth={2} d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2Z" />
+  </svg>
+);
+
+export const PenIcon = ({ size = 16, className = '', color = 'currentColor' }: IconProps) => (
+  <svg className={className} width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+    <path strokeWidth={2} d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+  </svg>
+);
+
+export const SearchIcon = ({ size = 16, className = '', color = 'currentColor' }: IconProps) => (
+  <svg className={className} width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+    <path strokeWidth={2} d="M21 21l-4.35-4.35M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" />
+  </svg>
+);

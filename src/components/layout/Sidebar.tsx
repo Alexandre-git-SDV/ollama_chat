@@ -5,22 +5,49 @@ import StarLogo from '@/components/ui/StarLogo';
 import {
   PlusIcon,
   ChatBubbleIcon,
-  SettingsIcon,
-  DotIcon,
-  ChevronDownIcon,
   RobotIcon,
+  ChevronDownIcon,
+  TrashIcon,
 } from '@/components/ui/Icons';
+import { Conversation } from '@/types/chat';
 
-export default function Sidebar() {
+interface Props {
+  conversations: Conversation[];
+  activeId: string | null;
+  selectedModel: string;
+  onModelChange: (m: string) => void;
+  temperature: number;
+  onTemperatureChange: (t: number) => void;
+  maxTokens: number;
+  onMaxTokensChange: (t: number) => void;
+  systemPrompt: string;
+  onSystemPromptChange: (s: string) => void;
+  onNewConversation: () => void;
+  onSwitchConversation: (id: string) => void;
+  onDeleteConversation: (id: string) => void;
+}
+
+export default function Sidebar({
+  conversations,
+  activeId,
+  selectedModel,
+  onModelChange,
+  temperature,
+  onTemperatureChange,
+  maxTokens,
+  onMaxTokensChange,
+  systemPrompt,
+  onSystemPromptChange,
+  onNewConversation,
+  onSwitchConversation,
+  onDeleteConversation,
+}: Props) {
   const [ollamaConnected, setOllamaConnected] = useState(false);
-  const [temperature, setTemperature] = useState(0.7);
-  const [maxTokens, setMaxTokens] = useState(2048);
-  const [systemPrompt, setSystemPrompt] = useState('');
-  const [selectedModel, setSelectedModel] = useState('');
   const [models, setModels] = useState<string[]>([]);
+  const [modelOpen, setModelOpen] = useState(false);
 
   useEffect(() => {
-    const checkHealth = async () => {
+    const check = async () => {
       try {
         const res = await fetch('/api/health');
         const data = await res.json();
@@ -29,9 +56,9 @@ export default function Sidebar() {
         setOllamaConnected(false);
       }
     };
-    checkHealth();
-    const interval = setInterval(checkHealth, 5000);
-    return () => clearInterval(interval);
+    check();
+    const i = setInterval(check, 5000);
+    return () => clearInterval(i);
   }, []);
 
   useEffect(() => {
@@ -40,8 +67,9 @@ export default function Sidebar() {
         const res = await fetch('/api/models');
         const data = await res.json();
         if (data.models?.length) {
-          setModels(data.models.map((m: { name: string }) => m.name));
-          setSelectedModel(data.models[0].name);
+          const names = data.models.map((m: { name: string }) => m.name);
+          setModels(names);
+          if (!selectedModel) onModelChange(names[0]);
         }
       } catch {
         setModels([]);
@@ -58,112 +86,142 @@ export default function Sidebar() {
         <span className="text-lg font-bold gradient-text">Ollama Chat</span>
       </div>
 
-      {/* Nouveau Chat */}
-      <div className="px-3 mb-4">
-        <button className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-sm font-medium gradient-bg hover:brightness-110 transition-all duration-150">
-          <PlusIcon size={16} />
-          Nouveau Chat
+      {/* New chat */}
+      <div className="px-3 mb-3">
+        <button
+          onClick={onNewConversation}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-border-subtle hover:bg-bg-hover transition-colors text-sm text-text-secondary"
+        >
+          <PlusIcon size={14} />
+          Nouvelle conversation
         </button>
       </div>
 
-      {/* Modèle */}
-      <div className="px-3 mb-4">
-        <span className="text-[10px] font-semibold uppercase tracking-widest text-text-label mb-2 block">
-          Modèle
-        </span>
-        <div className="relative">
-          <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none">
-            <RobotIcon size={14} />
-          </div>
-          <select
-            value={selectedModel}
-            onChange={(e) => setSelectedModel(e.target.value)}
-            className="w-full bg-bg-input border border-border-subtle rounded-lg pl-8 pr-8 py-2 text-sm text-text-secondary appearance-none cursor-pointer accent-border-focus transition-all duration-200"
-          >
-            {models.length === 0 && <option value="">Aucun modèle</option>}
-            {models.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-text-muted">
-            <ChevronDownIcon size={14} />
-          </div>
+      {/* Conversations list */}
+      <div className="flex-1 overflow-y-auto px-3">
+        <p className="text-[10px] uppercase tracking-wider text-text-muted mb-2 px-1">
+          Conversations
+        </p>
+        <div className="space-y-1">
+          {conversations.length === 0 && (
+            <p className="text-xs text-text-muted px-2 py-3 text-center">
+              Aucune conversation
+            </p>
+          )}
+          {conversations.map((conv) => (
+            <div
+              key={conv.id}
+              className={`group flex items-center gap-2 px-2 py-2 rounded-lg cursor-pointer transition-colors text-sm ${
+                conv.id === activeId
+                  ? 'bg-bg-hover text-text-primary'
+                  : 'text-text-secondary hover:bg-bg-hover/50'
+              }`}
+              onClick={() => onSwitchConversation(conv.id)}
+            >
+              <ChatBubbleIcon size={14} />
+              <span className="flex-1 truncate">{conv.title}</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteConversation(conv.id);
+                }}
+                className="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded hover:bg-red-500/20 transition-all"
+              >
+                <TrashIcon size={12} color="var(--text-muted)" />
+              </button>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Paramètres */}
-      <div className="px-3 mb-4 space-y-3">
-        <span className="text-[10px] font-semibold uppercase tracking-widest text-text-label block">
-          Paramètres
-        </span>
+      {/* Settings */}
+      <div className="border-t border-border-subtle p-3 space-y-3">
+        {/* Model selector */}
+        <div className="relative">
+          <button
+            onClick={() => setModelOpen(!modelOpen)}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-bg-input border border-border-subtle text-sm text-text-secondary hover:bg-bg-hover transition-colors"
+          >
+            <RobotIcon size={14} color="var(--accent)" />
+            <span className="flex-1 text-left truncate">
+              {selectedModel || 'Chargement...'}
+            </span>
+            <ChevronDownIcon size={12} />
+          </button>
+          {modelOpen && models.length > 0 && (
+            <div className="absolute bottom-full left-0 right-0 mb-1 bg-bg-card border border-border-subtle rounded-lg shadow-xl overflow-hidden z-50 max-h-48 overflow-y-auto">
+              {models.map((m) => (
+                <button
+                  key={m}
+                  onClick={() => {
+                    onModelChange(m);
+                    setModelOpen(false);
+                  }}
+                  className={`w-full text-left px-3 py-2 text-sm hover:bg-bg-hover transition-colors ${
+                    m === selectedModel ? 'text-[var(--accent)]' : 'text-text-secondary'
+                  }`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
-        {/* Température */}
+        {/* Temperature */}
         <div>
-          <div className="flex justify-between mb-1">
-            <label className="text-xs text-text-muted">Température</label>
-            <span className="text-xs text-text-muted">{temperature}</span>
+          <div className="flex justify-between text-[10px] text-text-muted mb-1 px-1">
+            <span>Température</span>
+            <span>{temperature}</span>
           </div>
           <input
             type="range"
-            min={0}
-            max={1}
-            step={0.1}
+            min="0"
+            max="2"
+            step="0.1"
             value={temperature}
-            onChange={(e) => setTemperature(parseFloat(e.target.value))}
+            onChange={(e) => onTemperatureChange(parseFloat(e.target.value))}
             className="w-full accent-[var(--accent)] h-1"
           />
         </div>
 
-        {/* Max Tokens */}
+        {/* Max tokens */}
         <div>
-          <label className="text-xs text-text-muted block mb-1">Max Tokens</label>
+          <div className="flex justify-between text-[10px] text-text-muted mb-1 px-1">
+            <span>Max tokens</span>
+            <span>{maxTokens}</span>
+          </div>
           <input
-            type="number"
+            type="range"
+            min="256"
+            max="8192"
+            step="256"
             value={maxTokens}
-            onChange={(e) => setMaxTokens(parseInt(e.target.value) || 0)}
-            className="w-full bg-bg-input border border-border-subtle rounded-lg px-3 py-2 text-sm text-text-secondary accent-border-focus transition-all duration-200"
+            onChange={(e) => onMaxTokensChange(parseInt(e.target.value))}
+            className="w-full accent-[var(--accent)] h-1"
           />
         </div>
 
-        {/* Prompt Système */}
-        <div>
-          <label className="text-xs text-text-muted block mb-1">Prompt Système</label>
-          <textarea
-            rows={3}
-            value={systemPrompt}
-            onChange={(e) => setSystemPrompt(e.target.value)}
-            placeholder="Instructions pour le modèle..."
-            className="w-full bg-bg-input border border-border-subtle rounded-lg px-3 py-2 text-sm text-text-secondary placeholder:text-text-placeholder resize-none accent-border-focus transition-all duration-200"
-          />
-        </div>
-      </div>
+        {/* System prompt */}
+        <textarea
+          rows={2}
+          value={systemPrompt}
+          onChange={(e) => onSystemPromptChange(e.target.value)}
+          placeholder="System prompt..."
+          className="w-full text-xs bg-bg-input border border-border-subtle rounded-lg px-2 py-1.5 text-text-secondary placeholder:text-text-placeholder resize-none"
+        />
 
-      {/* Historique */}
-      <div className="px-3 flex-1 overflow-y-auto">
-        <span className="text-[10px] font-semibold uppercase tracking-widest text-text-label mb-2 block">
-          Historique
-        </span>
-        <div className="flex flex-col items-center justify-center py-8 text-text-placeholder">
-          <ChatBubbleIcon size={32} />
-          <span className="text-xs mt-2">Aucune conversation</span>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="px-3 py-3 border-t border-border-subtle flex items-center justify-between">
-        <div className="flex items-center gap-2 text-xs text-text-muted">
-          <DotIcon
-            size={8}
-            color={ollamaConnected ? '#10b981' : '#ef4444'}
-            className={ollamaConnected ? 'dot-pulse' : ''}
+        {/* Status */}
+        <div className="flex items-center gap-2 px-1">
+          <div
+            className={`w-2 h-2 rounded-full ${
+              ollamaConnected ? 'bg-green-500' : 'bg-red-500'
+            }`}
           />
-          {ollamaConnected ? 'Connecté' : 'Déconnecté'}
+          <span className="text-[10px] text-text-muted">
+            Ollama {ollamaConnected ? 'connecté' : 'déconnecté'}
+          </span>
         </div>
-        <button className="p-1.5 rounded-lg hover:bg-bg-hover transition-colors text-text-muted hover:text-text-secondary">
-          <SettingsIcon size={16} />
-        </button>
       </div>
     </aside>
   );
