@@ -1,36 +1,128 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Ollama Chat
 
-## Getting Started
+Interface web pour discuter avec des modèles Ollama en local, avec stockage des conversations sur MongoDB.
 
-First, run the development server:
+## Stack
+
+- **Frontend** : Next.js 16 (App Router), React 19, Tailwind CSS v4, TypeScript
+- **Backend** : Next.js API Routes
+- **IA** : [Ollama](https://ollama.com) — modèles locaux (Llama, Mistral, etc.)
+- **Base de données** : MongoDB (mongoose)
+- **Tests** : Vitest + Testing Library
+- **Conteneurisation** : Docker, Docker Compose
+
+## Démarrage rapide
+
+### Prérequis
+
+- Node.js 22+
+- Docker & Docker Compose
+- Ollama installé localement (`ollama serve`)
+
+### Développement local (sans Docker)
 
 ```bash
+# 1. Cloner et installer
+pnpm install
+
+# 2. Configurer les variables d'environnement
+cp .env.docker .env.local
+# Modifier MONGODB_URI si nécessaire
+
+# 3. Lancer Ollama (dans un terminal séparé)
+ollama serve
+ollama pull llama3.2
+
+# 4. Lancer le serveur de dev
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Ouvrir [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Avec Docker Compose (recommandé)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+# Tout lancer (app + Ollama + MongoDB)
+docker compose up -d
 
-## Learn More
+# Avec l'admin MongoDB Express
+docker compose --profile admin up -d
+```
 
-To learn more about Next.js, take a look at the following resources:
+| Service | URL |
+|---------|-----|
+| App | http://localhost:3000 |
+| Ollama API | http://localhost:11434 |
+| MongoDB | mongodb://localhost:27017 |
+| MongoDB Express | http://localhost:8081 |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Scripts
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run dev          # Développement
+npm run build        # Build production
+npm run start        # Démarrer production
+npm run lint         # ESLint
+npm run test         # Tests (Vitest)
+npm run test:watch  # Tests en watch mode
+npm run test:coverage # Couverture de code
+```
 
-## Deploy on Vercel
+## API Routes
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Ollama
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| GET | `/api/ollama/health` | Connectivité Ollama |
+| GET | `/api/ollama/version` | Version Ollama |
+| GET | `/api/ollama/tags` | Modèles installés |
+| GET | `/api/ollama/ps` | Modèles en mémoire |
+| POST | `/api/ollama/show` | Détails d'un modèle |
+| POST | `/api/ollama/load` | Charger un modèle |
+| POST | `/api/ollama/unload` | Décharger un modèle |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Chat
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| POST | `/api/chat` | Chat streaming SSE |
+| POST | `/api/chat/title` | Générer un titre |
+
+### Conversations (MongoDB)
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| GET | `/api/conversations` | Liste des conversations |
+| POST | `/api/conversations` | Créer une conversation |
+| GET | `/api/conversations/[id]` | Récupérer une conversation |
+| PUT | `/api/conversations/[id]` | Mettre à jour |
+| DELETE | `/api/conversations/[id]` | Supprimer |
+| POST | `/api/conversations/[id]/save` | Ajouter des messages |
+
+## Variables d'environnement
+
+| Variable | Description | Défaut |
+|----------|-------------|--------|
+| `OLLAMA_BASE_URL` | URL de l'API Ollama | `http://localhost:11434` |
+| `DEFAULT_MODEL` | Modèle par défaut | `llama3.2` |
+| `MONGODB_URI` | Connection string MongoDB | — |
+
+## Tests
+
+```bash
+npm run test          # Lancer les tests
+npm run test:coverage # Rapport de couverture
+```
+
+Couverture actuelle : **19 tests**, composants UI et types validés.
+
+## CI/CD
+
+Le pipeline GitHub Actions (`Ollama CI`) s'exécute sur chaque push et pull request sur `master` et `development` :
+
+1. **Lint** — ESLint
+2. **Test** — Vitest + couverture
+3. **Build Docker** — Image GHCR (push sur `master` uniquement)
+4. **Build Next.js** — Build de production
+
+## Licence
+
+MIT
