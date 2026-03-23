@@ -332,7 +332,7 @@ export default function Sidebar({
             rows={3}
             value={systemPrompt}
             onChange={(e) => onSystemPromptChange(e.target.value)}
-            placeholder="System prompt..."
+            placeholder="Contexte..."
             className="w-full text-sm bg-bg-input border border-border-subtle rounded-xl px-3 py-2 text-text-secondary placeholder:text-text-placeholder resize-none"
           />
 
