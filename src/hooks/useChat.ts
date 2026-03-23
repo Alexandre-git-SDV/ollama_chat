@@ -7,38 +7,40 @@ function uid() {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 }
 
+export function createMessage(role: 'user' | 'assistant', content: string, model?: string): Message {
+  return {
+    id: uid(),
+    role,
+    content,
+    model,
+    createdAt: new Date().toISOString(),
+  };
+}
+
 interface UseChatOptions {
   settings: ChatSettings;
   messages: Message[];
-  onAddMessage: (msg: Message) => void;
-  onUpdateAssistant: (content: string) => void;
+  onUpdateAssistant: (convId: string, content: string) => void;
+  onStreamEnd?: () => void;
 }
 
-export function useChat({ settings, messages, onAddMessage, onUpdateAssistant }: UseChatOptions) {
+export function useChat({ settings, messages, onUpdateAssistant, onStreamEnd }: UseChatOptions) {
   const [isStreaming, setIsStreaming] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const accumulatorRef = useRef('');
+  const messagesRef = useRef<Message[]>(messages);
+  const onUpdateAssistantRef = useRef(onUpdateAssistant);
+  const onStreamEndRef = useRef(onStreamEnd);
+  const settingsRef = useRef(settings);
 
-  const send = useCallback(
-    async (content: string) => {
-      if (!content.trim() || isStreaming) return;
+  messagesRef.current = messages;
+  onUpdateAssistantRef.current = onUpdateAssistant;
+  onStreamEndRef.current = onStreamEnd;
+  settingsRef.current = settings;
 
-      const userMsg: Message = {
-        id: uid(),
-        role: 'user',
-        content: content.trim(),
-        createdAt: new Date().toISOString(),
-      };
-      onAddMessage(userMsg);
-
-      const assistantMsg: Message = {
-        id: uid(),
-        role: 'assistant',
-        content: '',
-        model: settings.model,
-        createdAt: new Date().toISOString(),
-      };
-      onAddMessage(assistantMsg);
+  const sendMessages = useCallback(
+    async (convId: string, messagesToSend: Message[]) => {
+      if (isStreaming) return;
 
       setIsStreaming(true);
       accumulatorRef.current = '';
@@ -47,17 +49,15 @@ export function useChat({ settings, messages, onAddMessage, onUpdateAssistant }:
       abortRef.current = controller;
 
       try {
-        const allMessages = [...messages, userMsg];
-
         const res = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            messages: allMessages.map((m) => ({ role: m.role, content: m.content })),
-            model: settings.model,
-            temperature: settings.temperature,
-            maxTokens: settings.maxTokens,
-            systemPrompt: settings.systemPrompt,
+            messages: messagesToSend.map((m) => ({ role: m.role, content: m.content })),
+            model: settingsRef.current.model,
+            temperature: settingsRef.current.temperature,
+            maxTokens: settingsRef.current.maxTokens,
+            systemPrompt: settingsRef.current.systemPrompt,
           }),
           signal: controller.signal,
         });
@@ -79,7 +79,7 @@ export function useChat({ settings, messages, onAddMessage, onUpdateAssistant }:
               const data = JSON.parse(line.slice(6));
               if (data.content) {
                 accumulatorRef.current += data.content;
-                onUpdateAssistant(accumulatorRef.current);
+                onUpdateAssistantRef.current(convId, accumulatorRef.current);
               }
             } catch {
               // skip
@@ -89,15 +89,16 @@ export function useChat({ settings, messages, onAddMessage, onUpdateAssistant }:
       } catch (err: unknown) {
         if (err instanceof Error && err.name !== 'AbortError') {
           if (!accumulatorRef.current) {
-            onUpdateAssistant('❌ Erreur de connexion à Ollama.');
+            onUpdateAssistantRef.current(convId, '❌ Erreur de connexion à Ollama.');
           }
         }
       } finally {
         setIsStreaming(false);
         abortRef.current = null;
+        onStreamEndRef.current?.();
       }
     },
-    [messages, settings, isStreaming, onAddMessage, onUpdateAssistant]
+    [isStreaming]
   );
 
   const stop = useCallback(() => {
@@ -105,5 +106,5 @@ export function useChat({ settings, messages, onAddMessage, onUpdateAssistant }:
     setIsStreaming(false);
   }, []);
 
-  return { isStreaming, send, stop };
+  return { isStreaming, sendMessages, stop };
 }

@@ -36,7 +36,7 @@ const ConversationSchema = new Schema<IConversation>(
     title: { type: String, default: 'Nouvelle conversation' },
     modelName: { type: String, required: true },
     messages: { type: [MessageSchema], default: [] },
-    temperature: { type: Number, default: 0.7 },
+    temperature: { type: Number, default: 1 },
     maxTokens: { type: Number, default: 2048 },
     systemPrompt: { type: String, default: '' },
     seed: { type: Number },

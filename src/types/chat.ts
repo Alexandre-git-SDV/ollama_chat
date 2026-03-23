@@ -11,6 +11,9 @@ export interface Conversation {
   title: string;
   messages: Message[];
   model: string;
+  temperature?: number;
+  maxTokens?: number;
+  systemPrompt?: string;
   createdAt: string;
   updatedAt: string;
 }

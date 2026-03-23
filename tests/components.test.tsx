@@ -96,6 +96,8 @@ describe('Sidebar', () => {
     onNewConversation: vi.fn(),
     onSwitchConversation: vi.fn(),
     onDeleteConversation: vi.fn(),
+    onRenameConversation: vi.fn(),
+    mounted: true,
   };
 
   it('renders logo and title', () => {

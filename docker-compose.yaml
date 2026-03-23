@@ -9,12 +9,18 @@ services:
     env_file:
       - .env.docker
     environment:
-      OLLAMA_BASE_URL: http://ollama:11434
-      DEFAULT_MODEL: llama3.2
-      MONGODB_URI: mongodb://mongo:27017/ollama_chat
+      - OLLAMA_BASE_URL
+      - DEFAULT_MODEL
+      - MONGODB_URI
     depends_on:
-      - ollama
-      - mongo
+      ollama:
+        condition: service_started
+        required: false
+      mongo:
+        condition: service_started
+        required: false
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
     networks:
       - ollama-chat-network
     restart: unless-stopped
@@ -22,20 +28,18 @@ services:
   ollama:
     image: ollama/ollama:latest
     container_name: ollama-chat-ollama
-    ports:
-      - '11434:11434'
+    expose:
+      - '11434'
     volumes:
       - ollama-models:/root/.ollama
     networks:
       - ollama-chat-network
     restart: unless-stopped
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+    profiles:
+      - local-deps
+    # CPU mode by default (works on hosts without NVIDIA runtime).
+    # Uncomment for NVIDIA GPU acceleration:
+    # gpus: all
 
   mongo:
     image: mongo:7
@@ -48,6 +52,8 @@ services:
     networks:
       - ollama-chat-network
     restart: unless-stopped
+    profiles:
+      - local-deps
     environment:
       MONGO_INITDB_DATABASE: ollama_chat
 

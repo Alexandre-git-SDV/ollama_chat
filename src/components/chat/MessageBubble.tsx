@@ -1,6 +1,7 @@
 'use client';
 
 import { Message } from '@/types/chat';
+import StarLogo from '@/components/ui/StarLogo';
 import { RobotIcon } from '@/components/ui/Icons';
 
 interface Props {
@@ -16,13 +17,13 @@ export default function MessageBubble({ message, isStreaming }: Props) {
       {/* Avatar */}
       <div
         className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-          isUser ? 'bg-[var(--accent)]' : 'bg-bg-card border border-border-subtle'
+          isUser ? 'bg-(--accent)' : 'bg-bg-card border border-border-subtle'
         }`}
       >
         {isUser ? (
-          <span className="text-white text-xs font-bold">U</span>
+          <StarLogo size={20}/>
         ) : (
-          <RobotIcon size={16} color="var(--accent)" />
+          <RobotIcon size={20} color="var(--accent)" />
         )}
       </div>
 
