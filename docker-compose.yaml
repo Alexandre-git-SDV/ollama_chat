@@ -9,6 +9,7 @@ services:
     env_file:
       - .env.docker
     environment:
+      - OLLAMA_HOST
       - OLLAMA_BASE_URL
       - DEFAULT_MODEL
       - MONGODB_URI
@@ -24,6 +25,12 @@ services:
     networks:
       - ollama-chat-network
     restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:3000/']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   ollama:
     image: ollama/ollama:latest

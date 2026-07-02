@@ -19,6 +19,19 @@ docker
 README.md
 AGENTS.md
 
+# ai tooling / agents (dev-only, jamais utile dans l'image)
+.claude
+.opencode
+.mcp.json
+opencode.json
+
+# hors image : orchestration cote hote uniquement (docker-up-auto.sh, CI)
+scripts
+.github
+
+# tests (non necessaires au build standalone)
+tests
+
 # IDE
 .vscode
 .idea
@@ -32,6 +45,7 @@ Thumbs.db
 # logs
 *.log
 npm-debug.log*
+pnpm-debug.log*
 
 # test
 coverage

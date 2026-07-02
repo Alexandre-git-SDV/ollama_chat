@@ -48,50 +48,102 @@ export function useChat({ settings, messages, onUpdateAssistant, onStreamEnd }: 
       const controller = new AbortController();
       abortRef.current = controller;
 
+      const model = settingsRef.current.model;
+      const systemPrompt = settingsRef.current.systemPrompt?.trim();
+
+      // Messages Ollama : system optionnel en tête, puis l'historique.
+      const ollamaMessages = [
+        ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
+        ...messagesToSend.map((m) => ({ role: m.role, content: m.content })),
+      ];
+
+      const fail = (message: string) => {
+        // Préfixe « ❌ » : MessageBubble rend ces messages en rouge.
+        onUpdateAssistantRef.current(convId, message);
+      };
+
       try {
-        const res = await fetch('/api/chat', {
+        const res = await fetch('/api/ollama/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store',
           body: JSON.stringify({
-            messages: messagesToSend.map((m) => ({ role: m.role, content: m.content })),
-            model: settingsRef.current.model,
-            temperature: settingsRef.current.temperature,
-            maxTokens: settingsRef.current.maxTokens,
-            systemPrompt: settingsRef.current.systemPrompt,
+            model,
+            messages: ollamaMessages,
+            stream: true,
+            options: {
+              temperature: settingsRef.current.temperature,
+              num_predict: settingsRef.current.maxTokens,
+            },
           }),
           signal: controller.signal,
         });
 
-        if (!res.ok || !res.body) throw new Error('Stream failed');
+        if (res.status === 502 || res.status === 503) {
+          fail(
+            '❌ Ollama déconnecté — vérifie que le serveur Ollama tourne (ollama serve).'
+          );
+          return;
+        }
+        if (res.status === 404) {
+          fail(`❌ Modèle introuvable — lance \`ollama pull ${model}\`.`);
+          return;
+        }
+        if (!res.ok || !res.body) {
+          fail(`❌ Erreur Ollama (HTTP ${res.status}).`);
+          return;
+        }
 
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
+        let buf = '';
 
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
-          const text = decoder.decode(value, { stream: true });
-          const lines = text.split('\n').filter((l) => l.startsWith('data: '));
+          buf += decoder.decode(value, { stream: true });
+          const lines = buf.split('\n');
+          buf = lines.pop() ?? '';
 
           for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            let json: {
+              message?: { content?: string };
+              error?: string;
+              done?: boolean;
+            };
             try {
-              const data = JSON.parse(line.slice(6));
-              if (data.content) {
-                accumulatorRef.current += data.content;
-                onUpdateAssistantRef.current(convId, accumulatorRef.current);
-              }
+              json = JSON.parse(trimmed);
             } catch {
-              // skip
+              continue;
             }
+
+            if (json.error) {
+              if (/not found|no such model|try pulling/i.test(json.error)) {
+                fail(`❌ Modèle introuvable — lance \`ollama pull ${model}\`.`);
+              } else {
+                fail(`❌ Erreur Ollama — ${json.error}`);
+              }
+              return;
+            }
+
+            const content = json.message?.content;
+            if (content) {
+              accumulatorRef.current += content;
+              onUpdateAssistantRef.current(convId, accumulatorRef.current);
+            }
+
+            if (json.done) break;
           }
         }
       } catch (err: unknown) {
-        if (err instanceof Error && err.name !== 'AbortError') {
-          if (!accumulatorRef.current) {
-            onUpdateAssistantRef.current(convId, '❌ Erreur de connexion à Ollama.');
-          }
-        }
+        // Stop volontaire : on garde le texte déjà accumulé, aucun message.
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        fail(
+          '❌ Ollama déconnecté — vérifie que le serveur Ollama tourne (ollama serve).'
+        );
       } finally {
         setIsStreaming(false);
         abortRef.current = null;

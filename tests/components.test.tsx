@@ -5,6 +5,8 @@ import userEvent from '@testing-library/user-event';
 import MessageBubble from '@/components/chat/MessageBubble';
 import ChatArea from '@/components/chat/ChatArea';
 import Sidebar from '@/components/layout/Sidebar';
+import MainHeader from '@/components/layout/MainHeader';
+import { Conversation } from '@/types/chat';
 
 HTMLDivElement.prototype.scrollIntoView = vi.fn();
 
@@ -43,7 +45,7 @@ describe('MessageBubble', () => {
     };
 
     render(<MessageBubble message={streamingMessage} isStreaming={true} />);
-    const dots = document.querySelectorAll('.animate-bounce');
+    const dots = document.querySelectorAll('.dot-bounce');
     expect(dots.length).toBe(3);
   });
 });
@@ -148,5 +150,90 @@ describe('Sidebar', () => {
     render(<Sidebar {...defaultProps} />);
     await user.click(screen.getByText('Nouvelle conversation'));
     expect(defaultProps.onNewConversation).toHaveBeenCalledTimes(1);
+  });
+
+  it('exposes a compact new-conversation button in the header', async () => {
+    const user = userEvent.setup();
+    const onNewConversation = vi.fn();
+    render(<Sidebar {...defaultProps} onNewConversation={onNewConversation} />);
+    // Deux points d'entrée « Nouvelle conversation » : la pilule pleine largeur
+    // (texte) et le bouton compact du header (aria-label).
+    const entries = screen.getAllByRole('button', { name: 'Nouvelle conversation' });
+    expect(entries.length).toBe(2);
+    await user.click(screen.getByLabelText('Nouvelle conversation'));
+    expect(onNewConversation).toHaveBeenCalled();
+  });
+
+  it('toggles the theme from the footer', async () => {
+    const user = userEvent.setup();
+    const onToggleTheme = vi.fn();
+    render(
+      <Sidebar
+        {...defaultProps}
+        theme="dark"
+        onToggleTheme={onToggleTheme}
+        onOpenSettings={vi.fn()}
+      />
+    );
+    await user.click(screen.getByLabelText('Activer le thème clair'));
+    expect(onToggleTheme).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('MainHeader', () => {
+  const conversation: Conversation = {
+    id: 'conv1',
+    title: 'Ma conversation',
+    messages: [],
+    model: 'llama3.2',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  const baseProps = {
+    onToggleSidebar: vi.fn(),
+    title: 'Ma conversation',
+    conversation,
+    models: [
+      { name: 'llama3.2', size: 1000, digest: 'a', modified_at: '' },
+      { name: 'qwen2.5', size: 2000, digest: 'b', modified_at: '' },
+    ],
+    selectedModel: 'llama3.2',
+    onModelChange: vi.fn(),
+    onDeleteConversation: vi.fn(),
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('renders the active title', () => {
+    render(<MainHeader {...baseProps} />);
+    expect(screen.getByRole('heading', { name: 'Ma conversation' })).toBeTruthy();
+  });
+
+  it('opens the model badge and switches model', async () => {
+    const user = userEvent.setup();
+    const onModelChange = vi.fn();
+    render(<MainHeader {...baseProps} onModelChange={onModelChange} />);
+    await user.click(screen.getByLabelText('Changer de modèle'));
+    await user.click(screen.getByRole('button', { name: /qwen2\.5/ }));
+    expect(onModelChange).toHaveBeenCalledWith('qwen2.5');
+  });
+
+  it('deletes only after inline confirmation', async () => {
+    const user = userEvent.setup();
+    const onDeleteConversation = vi.fn();
+    render(<MainHeader {...baseProps} onDeleteConversation={onDeleteConversation} />);
+    await user.click(screen.getByLabelText('Supprimer la conversation'));
+    expect(onDeleteConversation).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Supprimer' }));
+    expect(onDeleteConversation).toHaveBeenCalledWith('conv1');
+  });
+
+  it('disables export and delete without an active conversation', () => {
+    render(<MainHeader {...baseProps} conversation={null} />);
+    expect(screen.getByLabelText('Exporter la conversation')).toHaveProperty('disabled', true);
+    expect(screen.getByLabelText('Supprimer la conversation')).toHaveProperty('disabled', true);
   });
 });

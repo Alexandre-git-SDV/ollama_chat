@@ -369,7 +369,9 @@ export function useConversations() {
 
   return {
     conversations: mounted ? conversations : [],
-    active,
+    // Gaté par `mounted` : `active` vient de localStorage, invisible du SSR — le
+    // rendre avant hydratation provoquerait un mismatch (ex. titre du header).
+    active: mounted ? active : null,
     activeId,
     isLoading,
     mounted,
