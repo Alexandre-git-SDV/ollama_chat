@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Conversation, Message } from '@/types/chat';
+import { useHydrated } from '@/hooks/useHydrated';
 
 const STORAGE_KEY = 'ollama-chat-conversations';
 const ACTIVE_KEY = 'ollama-chat-active';
@@ -163,7 +164,7 @@ export function useConversations() {
     return null;
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const mounted = useHydrated();
   const activeIdRef = useRef<string | null>(activeId);
 
   useEffect(() => {
@@ -181,7 +182,6 @@ export function useConversations() {
   }, [activeId]);
 
   useEffect(() => {
-    setMounted(true);
     const load = async () => {
       setIsLoading(true);
       try {
@@ -195,7 +195,8 @@ export function useConversations() {
         setIsLoading(false);
       }
     };
-    load();
+    // Différé en microtâche : aucun setState synchrone dans le corps de l'effet.
+    void Promise.resolve().then(load);
   }, []);
 
   const active = conversations.find((c) => c.id === activeId) || null;

@@ -69,7 +69,9 @@ export function useOllama(pollMs = 5000): UseOllamaResult {
 
   useEffect(() => {
     mountedRef.current = true;
-    refresh();
+    // Différé en microtâche : refresh() pose setLoading(true) de façon synchrone,
+    // interdit dans le corps d'un effet (react-hooks/set-state-in-effect).
+    void Promise.resolve().then(refresh);
     const id = setInterval(refresh, pollMs);
     return () => {
       mountedRef.current = false;

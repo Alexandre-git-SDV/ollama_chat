@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Message, ChatSettings } from '@/types/chat';
 
 function uid() {
@@ -33,10 +33,14 @@ export function useChat({ settings, messages, onUpdateAssistant, onStreamEnd }: 
   const onStreamEndRef = useRef(onStreamEnd);
   const settingsRef = useRef(settings);
 
-  messagesRef.current = messages;
-  onUpdateAssistantRef.current = onUpdateAssistant;
-  onStreamEndRef.current = onStreamEnd;
-  settingsRef.current = settings;
+  // Pattern « latest ref » : synchronisé après commit (jamais pendant le rendu),
+  // lu uniquement dans des handlers déclenchés après coup.
+  useEffect(() => {
+    messagesRef.current = messages;
+    onUpdateAssistantRef.current = onUpdateAssistant;
+    onStreamEndRef.current = onStreamEnd;
+    settingsRef.current = settings;
+  });
 
   const sendMessages = useCallback(
     async (convId: string, messagesToSend: Message[]) => {
