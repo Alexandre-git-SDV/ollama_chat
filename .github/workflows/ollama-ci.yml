@@ -16,7 +16,8 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  PNPM_VERSION: '10'
+  # La version de pnpm est lue depuis le champ "packageManager" de package.json
+  # (pnpm/action-setup interdit de la spécifier aussi ici).
   NODE_VERSION: '22'
 
 jobs:
@@ -29,8 +30,6 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -53,8 +52,6 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -86,8 +83,6 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -99,7 +94,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run TypeScript compiler check
-        run: npx tsc --noEmit
+        run: pnpm exec tsc --noEmit
 
   build-nextjs:
     name: Build Next.js
@@ -111,8 +106,6 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

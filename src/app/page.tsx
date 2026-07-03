@@ -114,8 +114,6 @@ export default function Home() {
         <Sidebar
           conversations={conversations}
           activeId={activeId}
-          selectedModel={model}
-          onModelChange={setModelChoice}
           temperature={temperature}
           onTemperatureChange={setTemperature}
           maxTokens={maxTokens}
@@ -129,7 +127,6 @@ export default function Home() {
           isLoading={isLoading}
           mounted={mounted}
           online={online}
-          models={models}
           onOpenSettings={() => setSettingsOpen(true)}
           theme={theme}
           onToggleTheme={toggleTheme}

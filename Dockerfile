@@ -3,7 +3,8 @@ FROM node:22-alpine AS base
 FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
-# pnpm@10 aligné sur la CI (PNPM_VERSION) : pnpm@11 durcit le contrôle des
+# pnpm@10 aligné sur le champ "packageManager" de package.json (utilisé aussi
+# par la CI via pnpm/action-setup) : pnpm@11 durcit le contrôle des
 # scripts de build en erreur bloquante non interactive (esbuild/sharp/...).
 RUN corepack enable pnpm && corepack prepare pnpm@10 --activate
 COPY package.json pnpm-lock.yaml ./

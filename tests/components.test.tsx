@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import MessageBubble from '@/components/chat/MessageBubble';
 import ChatArea from '@/components/chat/ChatArea';
@@ -235,8 +235,6 @@ describe('Sidebar', () => {
   const defaultProps = {
     conversations: [],
     activeId: null,
-    selectedModel: 'llama3.2',
-    onModelChange: vi.fn(),
     temperature: 0.7,
     onTemperatureChange: vi.fn(),
     maxTokens: 2048,
@@ -260,9 +258,10 @@ describe('Sidebar', () => {
     expect(screen.getByText('Nouvelle conversation')).toBeTruthy();
   });
 
-  it('renders model selector with selected model', () => {
-    render(<Sidebar {...defaultProps} selectedModel="llama3.2" />);
-    expect(screen.getByText('llama3.2')).toBeTruthy();
+  it('does not render a model selector (moved to the topbar)', () => {
+    render(<Sidebar {...defaultProps} />);
+    expect(screen.queryByRole('button', { name: /modèle/i })).toBeNull();
+    expect(screen.queryByText('llama3.2')).toBeNull();
   });
 
   it('renders temperature slider', () => {
@@ -300,16 +299,68 @@ describe('Sidebar', () => {
     expect(defaultProps.onNewConversation).toHaveBeenCalledTimes(1);
   });
 
-  it('exposes a compact new-conversation button in the header', async () => {
-    const user = userEvent.setup();
-    const onNewConversation = vi.fn();
-    render(<Sidebar {...defaultProps} onNewConversation={onNewConversation} />);
-    // Deux points d'entrée « Nouvelle conversation » : la pilule pleine largeur
-    // (texte) et le bouton compact du header (aria-label).
+  it('exposes a single new-conversation entry point', () => {
+    render(<Sidebar {...defaultProps} />);
+    // Une seule entrée « Nouvelle conversation » : la pilule pleine largeur
+    // (le bouton compact du header a été retiré).
     const entries = screen.getAllByRole('button', { name: 'Nouvelle conversation' });
-    expect(entries.length).toBe(2);
-    await user.click(screen.getByLabelText('Nouvelle conversation'));
-    expect(onNewConversation).toHaveBeenCalled();
+    expect(entries.length).toBe(1);
+  });
+
+  it('asks for confirmation before deleting a conversation', async () => {
+    const user = userEvent.setup();
+    const onDeleteConversation = vi.fn();
+    const conversations = [
+      {
+        id: 'conv1',
+        title: 'Test conversation',
+        messages: [],
+        model: 'llama3.2',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ];
+    render(
+      <Sidebar
+        {...defaultProps}
+        conversations={conversations}
+        onDeleteConversation={onDeleteConversation}
+      />
+    );
+    // Le clic sur la corbeille ouvre le popover sans supprimer.
+    await user.click(screen.getByLabelText('Supprimer'));
+    expect(onDeleteConversation).not.toHaveBeenCalled();
+    const dialog = screen.getByRole('dialog', { name: 'Confirmer la suppression' });
+    // La confirmation déclenche la suppression et ferme le popover.
+    await user.click(within(dialog).getByRole('button', { name: 'Supprimer' }));
+    expect(onDeleteConversation).toHaveBeenCalledWith('conv1');
+    expect(screen.queryByRole('dialog', { name: 'Confirmer la suppression' })).toBeNull();
+  });
+
+  it('cancels deletion from the confirmation popover', async () => {
+    const user = userEvent.setup();
+    const onDeleteConversation = vi.fn();
+    const conversations = [
+      {
+        id: 'conv1',
+        title: 'Test conversation',
+        messages: [],
+        model: 'llama3.2',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ];
+    render(
+      <Sidebar
+        {...defaultProps}
+        conversations={conversations}
+        onDeleteConversation={onDeleteConversation}
+      />
+    );
+    await user.click(screen.getByLabelText('Supprimer'));
+    await user.click(screen.getByRole('button', { name: 'Annuler' }));
+    expect(onDeleteConversation).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog', { name: 'Confirmer la suppression' })).toBeNull();
   });
 
   it('toggles the theme from the footer', async () => {

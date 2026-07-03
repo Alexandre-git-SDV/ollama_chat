@@ -1,31 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import StarLogo from '@/components/ui/StarLogo';
 import StatusLed from '@/components/ui/StatusLed';
 import {
   PlusIcon,
   ChatBubbleIcon,
-  RobotIcon,
-  ChevronDownIcon,
   TrashIcon,
   LoaderIcon,
   PenIcon,
   CheckIcon,
   XIcon,
+  CloseIcon,
   SettingsIcon,
   MoonIcon,
   SunIcon,
 } from '@/components/ui/Icons';
-import { formatSize } from '@/hooks/useOllama';
-import { Conversation, OllamaModel } from '@/types/chat';
+import { useDismiss } from '@/hooks/useDismiss';
+import { Conversation } from '@/types/chat';
 import { Theme } from '@/lib/theme';
 
 interface Props {
   conversations: Conversation[];
   activeId: string | null;
-  selectedModel: string;
-  onModelChange: (m: string) => void;
   temperature: number;
   onTemperatureChange: (t: number) => void;
   maxTokens: number;
@@ -40,8 +37,6 @@ interface Props {
   mounted?: boolean;
   /** Statut de connexion Ollama (fourni par le parent). */
   online?: boolean;
-  /** Modèles disponibles (fournis par le parent). */
-  models?: OllamaModel[];
   onOpenSettings?: () => void;
   /** Thème courant + bascule (piloté par useAppSettings). */
   theme?: Theme;
@@ -51,8 +46,6 @@ interface Props {
 export default function Sidebar({
   conversations,
   activeId,
-  selectedModel,
-  onModelChange,
   temperature,
   onTemperatureChange,
   maxTokens,
@@ -66,14 +59,19 @@ export default function Sidebar({
   isLoading = false,
   mounted = false,
   online = false,
-  models = [],
   onOpenSettings,
   theme = 'dark',
   onToggleTheme,
 }: Props) {
-  const [modelOpen, setModelOpen] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  // Confirmation de suppression inline (même pattern que la topbar) : un seul
+  // popover ouvert à la fois, fermé par clic extérieur ou Échap.
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const confirmPopoverRef = useRef<HTMLDivElement>(null);
+  const confirmBtnRef = useRef<HTMLButtonElement>(null);
+  const closeConfirm = useCallback(() => setConfirmingId(null), []);
+  useDismiss(confirmPopoverRef, confirmingId !== null, closeConfirm);
 
   return (
     <nav
@@ -86,13 +84,6 @@ export default function Sidebar({
         <span className="text-[22px] font-bold gradient-text whitespace-nowrap leading-none">
           Ollama Chat
         </span>
-        <button
-          onClick={onNewConversation}
-          aria-label="Nouvelle conversation"
-          className="ml-auto w-10 h-10 rounded-lg flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
-        >
-          <PlusIcon size={20} />
-        </button>
       </div>
 
       {/* Nouvelle conversation */}
@@ -139,8 +130,9 @@ export default function Sidebar({
             {conversations.map((conv) => {
               const active = conv.id === activeId;
               const renaming = renamingId === conv.id;
+              const confirming = confirmingId === conv.id;
               return (
-                <li key={conv.id}>
+                <li key={conv.id} className="relative">
                   <div
                     className={`group flex items-center gap-2 px-3 min-h-[44px] rounded-xl cursor-pointer transition-colors ${
                       active
@@ -209,9 +201,14 @@ export default function Sidebar({
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            onDeleteConversation(conv.id);
+                            setConfirmingId(conv.id);
+                            // Déplace le focus sur l'action destructive une fois
+                            // le popover monté.
+                            requestAnimationFrame(() => confirmBtnRef.current?.focus());
                           }}
                           aria-label="Supprimer"
+                          aria-haspopup="dialog"
+                          aria-expanded={confirming}
                           className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-led-off/15 transition-all opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                         >
                           <TrashIcon size={14} color="var(--color-text-muted)" />
@@ -219,6 +216,50 @@ export default function Sidebar({
                       </>
                     )}
                   </div>
+
+                  {confirming && (
+                    <div
+                      ref={confirmPopoverRef}
+                      role="dialog"
+                      aria-label="Confirmer la suppression"
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute top-full right-0 mt-1 w-[240px] bg-bg-card border border-border rounded-xl shadow-2xl z-50 p-3"
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <p className="text-sm text-text-primary leading-snug">
+                          Supprimer cette conversation ?
+                        </p>
+                        <button
+                          type="button"
+                          onClick={closeConfirm}
+                          aria-label="Annuler la suppression"
+                          className="w-6 h-6 shrink-0 flex items-center justify-center rounded-md text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
+                        >
+                          <CloseIcon size={14} />
+                        </button>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={closeConfirm}
+                          className="flex-1 h-9 rounded-lg border border-border text-sm text-text-secondary hover:bg-bg-hover transition-colors"
+                        >
+                          Annuler
+                        </button>
+                        <button
+                          ref={confirmBtnRef}
+                          type="button"
+                          onClick={() => {
+                            onDeleteConversation(conv.id);
+                            setConfirmingId(null);
+                          }}
+                          className="flex-1 h-9 rounded-lg bg-led-off text-white text-sm font-medium hover:brightness-110 transition-all"
+                        >
+                          Supprimer
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </li>
               );
             })}
@@ -228,47 +269,6 @@ export default function Sidebar({
 
       {/* Bloc contrôles bas */}
       <div className="border-t border-border-subtle p-4 space-y-4 shrink-0">
-        {/* Sélecteur de modèle */}
-        <div className="relative">
-          <button
-            onClick={() => setModelOpen((o) => !o)}
-            aria-haspopup="listbox"
-            aria-expanded={modelOpen}
-            className="w-full flex items-center gap-3 px-4 min-h-[44px] rounded-xl bg-bg-field border border-border text-sm text-text-primary hover:bg-bg-field-hover transition-colors"
-          >
-            <RobotIcon size={19} color="var(--accent)" />
-            <span className="flex-1 text-left truncate">{selectedModel || 'Chargement…'}</span>
-            <ChevronDownIcon size={14} />
-          </button>
-          {modelOpen && models.length > 0 && (
-            <ul
-              role="listbox"
-              aria-label="Choix du modèle"
-              className="absolute bottom-full left-0 right-0 mb-2 bg-bg-card border border-border rounded-xl shadow-2xl overflow-hidden z-50 max-h-60 overflow-y-auto p-1"
-            >
-              {models.map((m) => {
-                const isSel = m.name === selectedModel;
-                return (
-                  <li key={m.name} role="option" aria-selected={isSel}>
-                    <button
-                      onClick={() => {
-                        onModelChange(m.name);
-                        setModelOpen(false);
-                      }}
-                      className={`w-full flex items-center gap-2 text-left px-3 py-2.5 rounded-lg text-sm hover:bg-bg-hover transition-colors ${
-                        isSel ? 'text-accent font-medium' : 'text-text-secondary'
-                      }`}
-                    >
-                      <span className="flex-1 truncate">{m.name}</span>
-                      <span className="font-mono text-xs text-text-muted">{formatSize(m.size)}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-
         {/* Température */}
         <div>
           <div className="flex justify-between text-xs text-text-muted mb-2 px-1">
