@@ -7,9 +7,10 @@ import MessageBubble from './MessageBubble';
 interface Props {
   messages: Message[];
   isStreaming: boolean;
+  onQuote?: (text: string) => void;
 }
 
-export default function ChatArea({ messages, isStreaming }: Props) {
+export default function ChatArea({ messages, isStreaming, onQuote }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll en bas à l'arrivée de nouveaux messages et pendant le streaming.
@@ -24,6 +25,7 @@ export default function ChatArea({ messages, isStreaming }: Props) {
           key={msg.id}
           message={msg}
           isStreaming={isStreaming && i === messages.length - 1 && msg.role === 'assistant'}
+          onQuote={onQuote}
         />
       ))}
       <div ref={bottomRef} />

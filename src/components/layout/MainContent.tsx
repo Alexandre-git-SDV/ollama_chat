@@ -114,6 +114,17 @@ export default function MainContent({
     [input, isStreaming, convId, messages, onEnsureConversation, onAddMessage, onGenerateTitle, sendMessages, stop, settings.model]
   );
 
+  // « Répondre » : insère le message en citation markdown dans le composer puis
+  // donne le focus. Focus impératif hors effet — pas de setState en corps d'effet.
+  const handleQuote = useCallback((text: string) => {
+    const quote = text
+      .split('\n')
+      .map((line) => `> ${line}`)
+      .join('\n');
+    setInput((prev) => (prev.trim() ? `${prev}\n\n${quote}\n\n` : `${quote}\n\n`));
+    textareaRef.current?.focus();
+  }, []);
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -137,7 +148,7 @@ export default function MainContent({
       {/* Contenu */}
       <div className="flex-1 overflow-y-auto">
         {hasMessages ? (
-          <ChatArea messages={messages} isStreaming={isStreaming} />
+          <ChatArea messages={messages} isStreaming={isStreaming} onQuote={handleQuote} />
         ) : (
           <div className="h-full flex items-center justify-center px-4 py-8">
             <div className="text-center w-full max-w-[560px]">

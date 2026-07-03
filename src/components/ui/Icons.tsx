@@ -150,3 +150,17 @@ export const DownloadIcon = ({ size = 16, className = '', color = 'currentColor'
     <path strokeWidth={1.8} d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
   </svg>
 );
+
+export const CopyIcon = ({ size = 16, className = '', color = 'currentColor' }: IconProps) => (
+  <svg className={className} width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="9" y="9" width="12" height="12" rx="2" strokeWidth={1.8} />
+    <path strokeWidth={1.8} d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+  </svg>
+);
+
+export const ReplyIcon = ({ size = 16, className = '', color = 'currentColor' }: IconProps) => (
+  <svg className={className} width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+    <path strokeWidth={1.8} d="M9 17 4 12l5-5" />
+    <path strokeWidth={1.8} d="M20 18v-2a4 4 0 0 0-4-4H4" />
+  </svg>
+);

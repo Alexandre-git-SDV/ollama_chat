@@ -222,6 +222,50 @@ input[type="range"]:focus-visible {
   margin: 0 0 0.75rem;
   color: var(--color-text-secondary);
 }
+.markdown-body table {
+  border-collapse: collapse;
+  width: max-content;
+  max-width: 100%;
+  font-size: 0.9em;
+  margin: 0 0 0.75rem;
+}
+.markdown-body th,
+.markdown-body td {
+  padding: 0.5rem 0.85rem;
+  border: 1px solid var(--color-border);
+  text-align: left;
+}
+.markdown-body th {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--color-text-title);
+  font-weight: 600;
+}
+.markdown-body tbody tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.02);
+}
+html.light .markdown-body th {
+  background: rgba(0, 0, 0, 0.05);
+}
+html.light .markdown-body tbody tr:nth-child(even) td {
+  background: rgba(0, 0, 0, 0.025);
+}
+.markdown-body hr {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 1.1rem 0;
+}
+.markdown-body del {
+  opacity: 0.65;
+}
+.markdown-body li.task-list-item {
+  list-style: none;
+  margin-left: -1.1rem;
+}
+.markdown-body input[type="checkbox"] {
+  margin-right: 0.45rem;
+  vertical-align: middle;
+  accent-color: var(--accent);
+}
 
 /* ---------- Scrollbar ---------- */
 ::-webkit-scrollbar { width: 7px; height: 7px; }

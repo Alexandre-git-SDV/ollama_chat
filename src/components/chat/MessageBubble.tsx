@@ -3,20 +3,25 @@
 import { Message } from '@/types/chat';
 import StarLogo from '@/components/ui/StarLogo';
 import Markdown from './Markdown';
-import { UserIcon } from '@/components/ui/Icons';
+import { UserIcon, CopyIcon, CheckIcon, ReplyIcon } from '@/components/ui/Icons';
+import { useCopyFeedback } from '@/hooks/useCopyFeedback';
 
 interface Props {
   message: Message;
   isStreaming?: boolean;
+  /** Insère ce message en citation markdown dans le composer. */
+  onQuote?: (text: string) => void;
 }
 
 function isError(content: string) {
   return content.startsWith('❌');
 }
 
-export default function MessageBubble({ message, isStreaming }: Props) {
+export default function MessageBubble({ message, isStreaming, onQuote }: Props) {
   const isUser = message.role === 'user';
   const empty = message.content.length === 0;
+
+  const { copied, copy } = useCopyFeedback();
 
   return (
     <div className={`flex gap-3 animate-msg-in ${isUser ? 'flex-row-reverse' : ''}`}>
@@ -56,6 +61,33 @@ export default function MessageBubble({ message, isStreaming }: Props) {
           <div className="text-[15px] text-text-primary break-words">
             <Markdown content={message.content} />
             {isStreaming && <span className="cursor-blink" aria-hidden="true" />}
+            {!isStreaming && !empty && (
+              <div className="flex items-center gap-1 mt-2">
+                <button
+                  type="button"
+                  onClick={() => copy(message.content)}
+                  aria-label="Copier la réponse"
+                  title="Copier la réponse"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
+                >
+                  {copied ? <CheckIcon size={16} /> : <CopyIcon size={16} />}
+                </button>
+                {onQuote && (
+                  <button
+                    type="button"
+                    onClick={() => onQuote(message.content)}
+                    aria-label="Répondre à ce message"
+                    title="Répondre à ce message"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
+                  >
+                    <ReplyIcon size={16} />
+                  </button>
+                )}
+                <span className="sr-only" role="status" aria-live="polite">
+                  {copied ? 'Réponse copiée' : ''}
+                </span>
+              </div>
+            )}
           </div>
         )}
       </div>
