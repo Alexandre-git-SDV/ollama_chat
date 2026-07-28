@@ -34,6 +34,10 @@ Le projet expose le MCP `next-devtools` (configuré dans `.mcp.json` pour Claude
 
 Vérifie systématiquement `get_errors` après une modification si le serveur de dev est lancé.
 
+### MCP GitHub
+
+Le projet expose aussi le MCP officiel [`github-mcp-server`](https://github.com/github/github-mcp-server) (serveur distant `https://api.githubcopilot.com/mcp/`, configuré dans `.mcp.json` et `opencode.json`) pour fiabiliser le travail sur les workflows GitHub Actions, Dependabot et le Dependency Review (issues, PR, résultats de checks, alertes) sans dépendre de copier-coller manuel des logs CI. Nécessite une autorisation OAuth ponctuelle côté utilisateur (`/mcp` en session interactive) — aucun token n'est stocké dans le dépôt.
+
 ### Sous-agents
 
 Le projet définit sept sous-agents, disponibles dans `.claude/agents/` (Claude Code) et `.opencode/agent/` (opencode). Délègue-leur le travail correspondant à leur spécialité :

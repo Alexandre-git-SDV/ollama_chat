@@ -8,6 +8,7 @@ WORKDIR /app
 # scripts de build en erreur bloquante non interactive (esbuild/sharp/...).
 RUN corepack enable pnpm && corepack prepare pnpm@10 --activate
 COPY package.json pnpm-lock.yaml ./
+COPY patches ./patches
 RUN pnpm install --frozen-lockfile
 
 FROM base AS builder
@@ -26,6 +27,12 @@ FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+
+# npm/npx/corepack ne sont jamais utilisés au runtime (CMD lance node
+# directement) : on les retire pour réduire la surface d'attaque et éliminer
+# les CVE de leurs dépendances embarquées (ex. tar fourni avec npm).
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+    /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs

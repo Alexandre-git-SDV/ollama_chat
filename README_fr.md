@@ -186,6 +186,7 @@ Workflows GitHub Actions, exécutés sur push et pull request vers `master` et `
 Le projet est configuré pour Claude Code et opencode :
 
 - **MCP `next-devtools`** (`.mcp.json` / `opencode.json`) — erreurs, routes et logs de l'application en temps réel pendant `pnpm dev`
+- **MCP GitHub** ([`github-mcp-server`](https://github.com/github/github-mcp-server), serveur distant) — accès fiable aux runs GitHub Actions, alertes Dependabot et résultats du Dependency Review pour le travail sur la CI/CD et les mises à jour de dépendances
 - **7 sous-agents spécialisés** (`.claude/agents/`, `.opencode/agent/`) — `designer` (design system officiel intégré), `frontend-dev`, `backend-dev`, `code-reviewer`, `test-reviewer`, `ci-reviewer`, `docker-dev`
 
 Voir `AGENTS.md` pour les conventions du projet.

@@ -32,10 +32,20 @@ jobs:
         with:
           fail-on-severity: high
           comment-summary-in-pr: always
-          # Licences réelles connues (BSD-3-Clause / MIT) mais non détectées par
-          # ClearlyDefined ; on les exclut du check pour éviter le bruit "unknown
+          # Licences réelles connues (MIT/BSD/Apache-2.0) mais non détectées par
+          # ClearlyDefined (paquets npm) ou non exposées par l'API GitHub pour
+          # les Actions tierces ; exclues du check pour éviter le bruit "unknown
           # license" sans désactiver le check globalement.
           allow-dependencies-licenses: >-
             pkg:npm/highlight.js,
             pkg:npm/rehype-highlight,
-            pkg:githubactions/pnpm/action-setup
+            pkg:npm/postcss,
+            pkg:npm/tinyrainbow,
+            pkg:githubactions/pnpm/action-setup,
+            pkg:githubactions/actions/checkout,
+            pkg:githubactions/actions/setup-node,
+            pkg:githubactions/actions/upload-artifact,
+            pkg:githubactions/docker/build-push-action,
+            pkg:githubactions/docker/login-action,
+            pkg:githubactions/docker/metadata-action,
+            pkg:githubactions/docker/setup-buildx-action
