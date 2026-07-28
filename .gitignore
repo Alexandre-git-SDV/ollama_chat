@@ -8,6 +8,10 @@
 !.yarn/releases
 !.yarn/versions
 
+# ce projet est pnpm-only : pas de lockfile npm/yarn
+package-lock.json
+yarn.lock
+
 # testing
 /coverage
 /tests/e2e

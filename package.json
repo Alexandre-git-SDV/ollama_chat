@@ -8,7 +8,14 @@
       "esbuild",
       "sharp",
       "unrs-resolver"
-    ]
+    ],
+    "overrides": {
+      "postcss": "^8.5.24",
+      "sharp": "^0.35.0",
+      "brace-expansion@1": "^1.1.16",
+      "brace-expansion@2": "^2.1.2",
+      "brace-expansion@5": "^5.0.8"
+    }
   },
   "scripts": {
     "dev": "next dev",
@@ -22,32 +29,31 @@
   },
   "dependencies": {
     "highlight.js": "^11.11.1",
-    "mongoose": "^9.7.3",
-    "next": "16.2.10",
+    "mongoose": "^9.8.1",
+    "next": "16.2.12",
     "ollama": "^0.6.3",
-    "react": "19.2.7",
-    "react-dom": "19.2.7",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "react-markdown": "^10.1.0",
     "rehype-highlight": "^7.0.2",
     "remark-gfm": "^4.0.1",
-    "uuid": "^13.0.2"
+    "uuid": "^14.0.1"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.3.2",
+    "@tailwindcss/postcss": "^4.3.3",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
-    "@types/node": "^22.20.0",
+    "@types/node": "^24.13.3",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^4.7.0",
-    "@vitest/coverage-v8": "^3.2.6",
+    "@vitest/coverage-v8": "^4.1.10",
     "babel-plugin-react-compiler": "1.0.0",
-    "eslint": "^9.39.4",
-    "eslint-config-next": "16.2.10",
-    "jsdom": "^26.1.0",
-    "tailwindcss": "^4.3.2",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "16.2.12",
+    "jsdom": "^30.0.0",
+    "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3",
-    "vitest": "^3.2.6"
+    "vitest": "^4.1.10"
   }
 }

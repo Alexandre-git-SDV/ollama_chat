@@ -3,6 +3,10 @@ name: Dependency Review
 on:
   pull_request:
     branches: [master, development]
+    paths:
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -21,10 +25,17 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Dependency Review
-        uses: actions/dependency-review-action@v4
+        uses: actions/dependency-review-action@v5.0.0
         with:
           fail-on-severity: high
           comment-summary-in-pr: always
+          # Licences réelles connues (BSD-3-Clause / MIT) mais non détectées par
+          # ClearlyDefined ; on les exclut du check pour éviter le bruit "unknown
+          # license" sans désactiver le check globalement.
+          allow-dependencies-licenses: >-
+            pkg:npm/highlight.js,
+            pkg:npm/rehype-highlight,
+            pkg:githubactions/pnpm/action-setup
