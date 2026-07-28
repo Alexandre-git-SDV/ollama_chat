@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import MessageBubble from '@/components/chat/MessageBubble';
 import ChatArea from '@/components/chat/ChatArea';
 import Sidebar from '@/components/layout/Sidebar';
+import MainHeader from '@/components/layout/MainHeader';
+import { Conversation } from '@/types/chat';
 
 HTMLDivElement.prototype.scrollIntoView = vi.fn();
 
@@ -43,8 +45,156 @@ describe('MessageBubble', () => {
     };
 
     render(<MessageBubble message={streamingMessage} isStreaming={true} />);
-    const dots = document.querySelectorAll('.animate-bounce');
+    const dots = document.querySelectorAll('.dot-bounce');
     expect(dots.length).toBe(3);
+  });
+
+  it('renders a GFM markdown table as a <table> element', () => {
+    const tableMessage = {
+      id: '4',
+      role: 'assistant' as const,
+      content: '| Nom | Âge |\n| --- | --- |\n| Alice | 30 |',
+      createdAt: new Date().toISOString(),
+    };
+
+    render(<MessageBubble message={tableMessage} />);
+    const table = document.querySelector('table');
+    expect(table).toBeTruthy();
+    expect(screen.getByRole('columnheader', { name: 'Nom' })).toBeTruthy();
+    expect(screen.getByRole('cell', { name: 'Alice' })).toBeTruthy();
+  });
+
+  it('copies the raw content to the clipboard on the copy button', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    });
+
+    const assistantMessage = {
+      id: '5',
+      role: 'assistant' as const,
+      content: 'Contenu brut à copier',
+      createdAt: new Date().toISOString(),
+    };
+
+    render(<MessageBubble message={assistantMessage} />);
+    fireEvent.click(screen.getByLabelText('Copier la réponse'));
+    expect(writeText).toHaveBeenCalledWith('Contenu brut à copier');
+    // Feedback annoncé aux lecteurs d'écran via une live region.
+    await waitFor(() => expect(screen.getByText('Réponse copiée')).toBeTruthy());
+  });
+
+  it('does not switch to the copied state when the clipboard write fails', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('denied'));
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    });
+
+    const assistantMessage = {
+      id: '5b',
+      role: 'assistant' as const,
+      content: 'Contenu',
+      createdAt: new Date().toISOString(),
+    };
+
+    render(<MessageBubble message={assistantMessage} />);
+    fireEvent.click(screen.getByLabelText('Copier la réponse'));
+    await waitFor(() => expect(writeText).toHaveBeenCalled());
+    // La live region reste vide : aucune bascule visuelle vers l'état copié.
+    expect(screen.queryByText('Réponse copiée')).toBeNull();
+  });
+
+  it('renders an error message in red without markdown or action buttons', () => {
+    const errorMessage = {
+      id: '5c',
+      role: 'assistant' as const,
+      content: '❌ **Erreur** de connexion',
+      createdAt: new Date().toISOString(),
+    };
+
+    render(<MessageBubble message={errorMessage} />);
+    // Texte brut (le markdown gras n'est pas parsé) et pas de <table>/<strong> markdown.
+    expect(screen.getByText('❌ **Erreur** de connexion')).toBeTruthy();
+    expect(screen.queryByLabelText('Copier la réponse')).toBeNull();
+    expect(screen.queryByLabelText('Répondre à ce message')).toBeNull();
+  });
+
+  it('does not show copy/reply buttons on a user message', () => {
+    const userMessage = {
+      id: '5d',
+      role: 'user' as const,
+      content: 'Question de l’utilisateur',
+      createdAt: new Date().toISOString(),
+    };
+
+    render(<MessageBubble message={userMessage} onQuote={vi.fn()} />);
+    expect(screen.queryByLabelText('Copier la réponse')).toBeNull();
+    expect(screen.queryByLabelText('Répondre à ce message')).toBeNull();
+  });
+
+  it('quotes the message via the reply button', async () => {
+    const user = userEvent.setup();
+    const onQuote = vi.fn();
+    const assistantMessage = {
+      id: '6',
+      role: 'assistant' as const,
+      content: 'Ligne 1\nLigne 2',
+      createdAt: new Date().toISOString(),
+    };
+
+    render(<MessageBubble message={assistantMessage} onQuote={onQuote} />);
+    await user.click(screen.getByLabelText('Répondre à ce message'));
+    expect(onQuote).toHaveBeenCalledWith('Ligne 1\nLigne 2');
+  });
+
+  it('hides the action buttons while the assistant message is streaming', () => {
+    const streamingMessage = {
+      id: '7',
+      role: 'assistant' as const,
+      content: 'Réponse partielle',
+      createdAt: new Date().toISOString(),
+    };
+
+    render(<MessageBubble message={streamingMessage} isStreaming={true} onQuote={vi.fn()} />);
+    expect(screen.queryByLabelText('Copier la réponse')).toBeNull();
+    expect(screen.queryByLabelText('Répondre à ce message')).toBeNull();
+  });
+
+  it('hides the action buttons on a finished but empty assistant message', () => {
+    const emptyMessage = {
+      id: '8',
+      role: 'assistant' as const,
+      content: '',
+      createdAt: new Date().toISOString(),
+    };
+
+    render(<MessageBubble message={emptyMessage} onQuote={vi.fn()} />);
+    expect(screen.queryByLabelText('Copier la réponse')).toBeNull();
+    expect(screen.queryByLabelText('Répondre à ce message')).toBeNull();
+  });
+
+  it('copies a code block content via its copy button', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    });
+
+    const codeMessage = {
+      id: '9',
+      role: 'assistant' as const,
+      content: '```js\nconst x = 42;\n```',
+      createdAt: new Date().toISOString(),
+    };
+
+    render(<MessageBubble message={codeMessage} />);
+    fireEvent.click(screen.getByLabelText('Copier le code'));
+    expect(writeText).toHaveBeenCalledTimes(1);
+    expect(writeText.mock.calls[0][0]).toContain('const x = 42;');
+    // Flush du feedback asynchrone (live region) pour éviter un warning act().
+    await waitFor(() => expect(screen.getByText('Code copié')).toBeTruthy());
   });
 });
 
@@ -85,8 +235,6 @@ describe('Sidebar', () => {
   const defaultProps = {
     conversations: [],
     activeId: null,
-    selectedModel: 'llama3.2',
-    onModelChange: vi.fn(),
     temperature: 0.7,
     onTemperatureChange: vi.fn(),
     maxTokens: 2048,
@@ -110,9 +258,10 @@ describe('Sidebar', () => {
     expect(screen.getByText('Nouvelle conversation')).toBeTruthy();
   });
 
-  it('renders model selector with selected model', () => {
-    render(<Sidebar {...defaultProps} selectedModel="llama3.2" />);
-    expect(screen.getByText('llama3.2')).toBeTruthy();
+  it('does not render a model selector (moved to the topbar)', () => {
+    render(<Sidebar {...defaultProps} />);
+    expect(screen.queryByRole('button', { name: /modèle/i })).toBeNull();
+    expect(screen.queryByText('llama3.2')).toBeNull();
   });
 
   it('renders temperature slider', () => {
@@ -148,5 +297,142 @@ describe('Sidebar', () => {
     render(<Sidebar {...defaultProps} />);
     await user.click(screen.getByText('Nouvelle conversation'));
     expect(defaultProps.onNewConversation).toHaveBeenCalledTimes(1);
+  });
+
+  it('exposes a single new-conversation entry point', () => {
+    render(<Sidebar {...defaultProps} />);
+    // Une seule entrée « Nouvelle conversation » : la pilule pleine largeur
+    // (le bouton compact du header a été retiré).
+    const entries = screen.getAllByRole('button', { name: 'Nouvelle conversation' });
+    expect(entries.length).toBe(1);
+  });
+
+  it('asks for confirmation before deleting a conversation', async () => {
+    const user = userEvent.setup();
+    const onDeleteConversation = vi.fn();
+    const conversations = [
+      {
+        id: 'conv1',
+        title: 'Test conversation',
+        messages: [],
+        model: 'llama3.2',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ];
+    render(
+      <Sidebar
+        {...defaultProps}
+        conversations={conversations}
+        onDeleteConversation={onDeleteConversation}
+      />
+    );
+    // Le clic sur la corbeille ouvre le popover sans supprimer.
+    await user.click(screen.getByLabelText('Supprimer'));
+    expect(onDeleteConversation).not.toHaveBeenCalled();
+    const dialog = screen.getByRole('dialog', { name: 'Confirmer la suppression' });
+    // La confirmation déclenche la suppression et ferme le popover.
+    await user.click(within(dialog).getByRole('button', { name: 'Supprimer' }));
+    expect(onDeleteConversation).toHaveBeenCalledWith('conv1');
+    expect(screen.queryByRole('dialog', { name: 'Confirmer la suppression' })).toBeNull();
+  });
+
+  it('cancels deletion from the confirmation popover', async () => {
+    const user = userEvent.setup();
+    const onDeleteConversation = vi.fn();
+    const conversations = [
+      {
+        id: 'conv1',
+        title: 'Test conversation',
+        messages: [],
+        model: 'llama3.2',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ];
+    render(
+      <Sidebar
+        {...defaultProps}
+        conversations={conversations}
+        onDeleteConversation={onDeleteConversation}
+      />
+    );
+    await user.click(screen.getByLabelText('Supprimer'));
+    await user.click(screen.getByRole('button', { name: 'Annuler' }));
+    expect(onDeleteConversation).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog', { name: 'Confirmer la suppression' })).toBeNull();
+  });
+
+  it('toggles the theme from the footer', async () => {
+    const user = userEvent.setup();
+    const onToggleTheme = vi.fn();
+    render(
+      <Sidebar
+        {...defaultProps}
+        theme="dark"
+        onToggleTheme={onToggleTheme}
+        onOpenSettings={vi.fn()}
+      />
+    );
+    await user.click(screen.getByLabelText('Activer le thème clair'));
+    expect(onToggleTheme).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('MainHeader', () => {
+  const conversation: Conversation = {
+    id: 'conv1',
+    title: 'Ma conversation',
+    messages: [],
+    model: 'llama3.2',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  const baseProps = {
+    onToggleSidebar: vi.fn(),
+    title: 'Ma conversation',
+    conversation,
+    models: [
+      { name: 'llama3.2', size: 1000, digest: 'a', modified_at: '' },
+      { name: 'qwen2.5', size: 2000, digest: 'b', modified_at: '' },
+    ],
+    selectedModel: 'llama3.2',
+    onModelChange: vi.fn(),
+    onDeleteConversation: vi.fn(),
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('renders the active title', () => {
+    render(<MainHeader {...baseProps} />);
+    expect(screen.getByRole('heading', { name: 'Ma conversation' })).toBeTruthy();
+  });
+
+  it('opens the model badge and switches model', async () => {
+    const user = userEvent.setup();
+    const onModelChange = vi.fn();
+    render(<MainHeader {...baseProps} onModelChange={onModelChange} />);
+    await user.click(screen.getByLabelText('Changer de modèle'));
+    await user.click(screen.getByRole('button', { name: /qwen2\.5/ }));
+    expect(onModelChange).toHaveBeenCalledWith('qwen2.5');
+  });
+
+  it('deletes only after inline confirmation', async () => {
+    const user = userEvent.setup();
+    const onDeleteConversation = vi.fn();
+    render(<MainHeader {...baseProps} onDeleteConversation={onDeleteConversation} />);
+    await user.click(screen.getByLabelText('Supprimer la conversation'));
+    expect(onDeleteConversation).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Supprimer' }));
+    expect(onDeleteConversation).toHaveBeenCalledWith('conv1');
+  });
+
+  it('disables export and delete without an active conversation', () => {
+    render(<MainHeader {...baseProps} conversation={null} />);
+    expect(screen.getByLabelText('Exporter la conversation')).toHaveProperty('disabled', true);
+    expect(screen.getByLabelText('Supprimer la conversation')).toHaveProperty('disabled', true);
   });
 });

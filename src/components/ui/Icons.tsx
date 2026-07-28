@@ -1,5 +1,3 @@
-import React from 'react';
-
 interface IconProps {
   size?: number;
   className?: string;
@@ -66,52 +64,6 @@ export const SidebarToggleIcon = ({ size = 16, className = '', color = 'currentC
   </svg>
 );
 
-export const DotIcon = ({ size = 8, className = '', color = '#10b981' }: IconProps) => (
-  <svg className={className} width={size} height={size} viewBox="0 0 8 8">
-    <circle cx="4" cy="4" r="4" fill={color} />
-  </svg>
-);
-
-export const NeuralNetworkIcon = ({ size = 16, className = '', color = 'currentColor' }: IconProps) => (
-  <svg className={className} width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="6" cy="6" r="2" strokeWidth={1.5} />
-    <circle cx="6" cy="18" r="2" strokeWidth={1.5} />
-    <circle cx="18" cy="6" r="2" strokeWidth={1.5} />
-    <circle cx="18" cy="18" r="2" strokeWidth={1.5} />
-    <circle cx="12" cy="12" r="2" strokeWidth={1.5} />
-    <path strokeWidth={1.5} d="M8 6h2.5M13.5 6H16M8 18h2.5M13.5 18H16M6 8v2.5M6 13.5V16M18 8v2.5M18 13.5V16" />
-  </svg>
-);
-
-export const PythonIcon = ({ size = 16, className = '', color = 'currentColor' }: IconProps) => (
-  <svg className={className} width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
-    <path strokeWidth={1.5} d="M12 2c-1.5 0-5 .5-5 3.5v3c0 1.5 1.5 3 3.5 3h3c2 0 3.5 1.5 3.5 3v3c0 3-3.5 3.5-5 3.5s-5-.5-5-3.5" />
-    <path strokeWidth={1.5} d="M12 22c1.5 0 5-.5 5-3.5v-3c0-1.5-1.5-3-3.5-3h-3c-2 0-3.5-1.5-3.5-3v-3C7 3 10.5 2.5 12 2.5s5 .5 5 3.5" />
-    <circle cx="9" cy="5.5" r="0.75" fill={color} strokeWidth={0} />
-    <circle cx="15" cy="18.5" r="0.75" fill={color} strokeWidth={0} />
-  </svg>
-);
-
-export const DockerIcon = ({ size = 16, className = '', color = 'currentColor' }: IconProps) => (
-  <svg className={className} width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
-    <path strokeWidth={1.5} d="M22 12.5c-.5-1-1.5-1.5-3-1.5h-1v-2h-3V7h-3V5H9v2H6v2H3v2H1.5s.5 3 3.5 4.5c2 1 4.5 1 6.5.5 2.5-.5 5-2 6.5-3.5h1c1 0 2-.5 3-1.5z" />
-    <rect x="6" y="9" width="2" height="2" strokeWidth={1} />
-    <rect x="9" y="9" width="2" height="2" strokeWidth={1} />
-    <rect x="12" y="9" width="2" height="2" strokeWidth={1} />
-    <rect x="9" y="7" width="2" height="2" strokeWidth={1} />
-    <rect x="12" y="7" width="2" height="2" strokeWidth={1} />
-    <rect x="12" y="5" width="2" height="2" strokeWidth={1} />
-    <rect x="15" y="9" width="2" height="2" strokeWidth={1} />
-  </svg>
-);
-
-export const SolidIcon = ({ size = 16, className = '', color = 'currentColor' }: IconProps) => (
-  <svg className={className} width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="12,2 22,8.5 22,15.5 12,22 2,15.5 2,8.5" strokeWidth={1.5} />
-    <path strokeWidth={1.5} d="M12 22V15.5M12 15.5L2 8.5M12 15.5L22 8.5" />
-  </svg>
-);
-
 export const CodeIcon = ({ size = 16, className = '', color = 'currentColor' }: IconProps) => (
   <svg className={className} width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
     <path strokeWidth={2} d="m16 18 6-6-6-6M8 6l-6 6 6 6" />
@@ -151,5 +103,64 @@ export const XIcon = ({ size = 16, className = '', color = 'currentColor' }: Ico
 export const SearchIcon = ({ size = 16, className = '', color = 'currentColor' }: IconProps) => (
   <svg className={className} width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
     <path strokeWidth={2} d="M21 21l-4.35-4.35M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" />
+  </svg>
+);
+
+export const RefreshIcon = ({ size = 16, className = '', color = 'currentColor' }: IconProps) => (
+  <svg className={className} width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+    <path strokeWidth={2} d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6" />
+  </svg>
+);
+
+export const InfoIcon = ({ size = 16, className = '', color = 'currentColor' }: IconProps) => (
+  <svg className={className} width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="9" strokeWidth={1.6} />
+    <path strokeWidth={2} d="M12 11v5M12 8h.01" />
+  </svg>
+);
+
+export const ExternalLinkIcon = ({ size = 16, className = '', color = 'currentColor' }: IconProps) => (
+  <svg className={className} width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+    <path strokeWidth={1.8} d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+  </svg>
+);
+
+export const UserIcon = ({ size = 16, className = '', color = 'currentColor' }: IconProps) => (
+  <svg className={className} width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+    <path strokeWidth={1.8} d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+    <circle cx="12" cy="7" r="4" strokeWidth={1.8} />
+  </svg>
+);
+
+export const MoonIcon = ({ size = 16, className = '', color = 'currentColor' }: IconProps) => (
+  <svg className={className} width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+    <path strokeWidth={1.8} d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+  </svg>
+);
+
+export const SunIcon = ({ size = 16, className = '', color = 'currentColor' }: IconProps) => (
+  <svg className={className} width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="4" strokeWidth={1.8} />
+    <path strokeWidth={1.8} d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+  </svg>
+);
+
+export const DownloadIcon = ({ size = 16, className = '', color = 'currentColor' }: IconProps) => (
+  <svg className={className} width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+    <path strokeWidth={1.8} d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
+  </svg>
+);
+
+export const CopyIcon = ({ size = 16, className = '', color = 'currentColor' }: IconProps) => (
+  <svg className={className} width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="9" y="9" width="12" height="12" rx="2" strokeWidth={1.8} />
+    <path strokeWidth={1.8} d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+  </svg>
+);
+
+export const ReplyIcon = ({ size = 16, className = '', color = 'currentColor' }: IconProps) => (
+  <svg className={className} width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+    <path strokeWidth={1.8} d="M9 17 4 12l5-5" />
+    <path strokeWidth={1.8} d="M20 18v-2a4 4 0 0 0-4-4H4" />
   </svg>
 );

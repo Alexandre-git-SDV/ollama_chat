@@ -1,56 +1,68 @@
+🇬🇧 English | 🇫🇷 [Français](README_fr.md)
+
 # Ollama Chat
 
-Interface web pour discuter avec des modèles Ollama en local, avec stockage des conversations sur MongoDB.
+A local web interface for chatting with Ollama models, with conversation storage in MongoDB.
+
+## Features
+
+- 💬 **Streaming chat** (NDJSON) with a thinking indicator, typing cursor, and stop button
+- 🗂️ **Persisted conversations** — localStorage + MongoDB, auto-generated titles, renaming, **JSON / Markdown** export
+- 🎨 **Dark/light design system** — configurable accent color (7 persisted hues), signature gradient, status LED
+- ⚙️ **Settings modal** — model selection (size, loaded status), system prompt, temperature, external sources (Claude, GPT, Mistral, Gemini… API keys stored locally only)
+- 🔌 **Built-in Ollama proxy** — no more CORS issues: the frontend goes through `/api/ollama/*`
+- 📱 **Responsive** — sidebar as a drawer on mobile, touch targets ≥ 44 px, full keyboard navigation and ARIA support
 
 ## Stack
 
-- **Frontend** : Next.js 16 (App Router), React 19, Tailwind CSS v4, TypeScript
-- **Backend** : Next.js API Routes
-- **IA** : [Ollama](https://ollama.com) — modèles locaux (Llama, Mistral, etc.)
-- **Base de données** : MongoDB (mongoose)
-- **Tests** : Vitest + Testing Library
-- **Conteneurisation** : Docker, Docker Compose
+- **Frontend**: Next.js 16 (App Router), React 19 (React Compiler), Tailwind CSS v4, TypeScript
+- **Backend**: Next.js Route Handlers (Ollama proxy, conversation CRUD)
+- **AI**: [Ollama](https://ollama.com) — local models (Llama, Mistral, etc.)
+- **Database**: MongoDB (Mongoose 9)
+- **Tests**: Vitest + Testing Library (jsdom)
+- **Containerization**: Multi-stage Docker (pnpm/corepack), Docker Compose
+- **Package manager**: **pnpm** (pinned via `packageManager`, never npm/yarn)
 
-## Démarrage rapide
+## Quick start
 
-### Prérequis
+### Prerequisites
 
-- Node.js 22+
-- Docker & Docker Compose
-- Ollama installé localement (`ollama serve`)
+- Node.js 24+ and **pnpm 10** (`corepack enable pnpm`)
+- Docker & Docker Compose (for the containerized stack)
+- Ollama installed locally (`ollama serve`)
 
-### Développement local (sans Docker)
+### Local development (without Docker)
 
 ```bash
-# 1. Cloner et installer
+# 1. Clone and install
 pnpm install
 
-# 2. Configurer les variables d'environnement
-cp .env.docker .env.local
-# Modifier MONGODB_URI si nécessaire
+# 2. Configure environment variables
+cp .env.example .env
+# Edit MONGODB_URI if needed
 
-# 3. Lancer Ollama (dans un terminal séparé)
+# 3. Start Ollama (in a separate terminal)
 ollama serve
 ollama pull llama3.2
 
-# 4. Lancer le serveur de dev
-npm run dev
+# 4. Start the dev server
+pnpm dev
 ```
 
-Ouvrir [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000).
 
-### Avec Docker Compose (recommandé)
+### With Docker Compose (recommended)
 
 ```bash
-# Demarrage intelligent:
-# - utilise Ollama/Mongo de la machine si detectes et accessibles
-# - demarre seulement les conteneurs manquants
-pnpm run docker:up:auto
+# Smart startup:
+# - reuses Ollama/Mongo on the host machine if detected and reachable
+# - only starts the missing containers
+pnpm docker:up:auto
 
-# Arret
+# Stop
 docker compose down
 
-# Avec l'admin MongoDB Express (optionnel)
+# With the MongoDB Express admin UI (optional)
 docker compose --profile admin up -d mongo-express
 ```
 
@@ -64,98 +76,125 @@ docker compose --profile admin up -d mongo-express
 ## Scripts
 
 ```bash
-npm run dev          # Développement
-npm run build        # Build production
-npm run start        # Démarrer production
-npm run lint         # ESLint
-npm run test         # Tests (Vitest)
-npm run test:watch  # Tests en watch mode
-npm run test:coverage # Couverture de code
+pnpm dev            # Development
+pnpm build          # Production build
+pnpm start          # Start production server
+pnpm lint           # ESLint
+pnpm test           # Tests (Vitest)
+pnpm test:watch     # Tests in watch mode
+pnpm test:coverage  # Code coverage
+pnpm docker:up:auto # Full Docker stack
 ```
 
 ## API Routes
 
-### Ollama
-| Méthode | Route | Description |
-|---------|-------|-------------|
-| GET | `/api/ollama/health` | Connectivité Ollama |
-| GET | `/api/ollama/version` | Version Ollama |
-| GET | `/api/ollama/tags` | Modèles installés |
-| GET | `/api/ollama/ps` | Modèles en mémoire |
-| POST | `/api/ollama/show` | Détails d'un modèle |
-| POST | `/api/ollama/load` | Charger un modèle |
-| POST | `/api/ollama/unload` | Décharger un modèle |
+### Ollama proxy (main entry point used by the frontend)
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET/POST | `/api/ollama/[...path]` | Proxy to the Ollama API (`OLLAMA_HOST`) — removes CORS issues, preserves streaming. E.g. `/api/ollama/api/tags`, `/api/ollama/api/chat` |
+
+### Granular Ollama routes
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/api/ollama/health` | Ollama connectivity |
+| GET | `/api/ollama/version` | Ollama version |
+| GET | `/api/ollama/tags` | Installed models |
+| GET | `/api/ollama/ps` | Models currently loaded in memory |
+| POST | `/api/ollama/show` | Model details |
+| POST | `/api/ollama/load` | Load a model |
+| POST | `/api/ollama/unload` | Unload a model |
 
 ### Chat
-| Méthode | Route | Description |
-|---------|-------|-------------|
-| POST | `/api/chat` | Chat streaming SSE |
-| POST | `/api/chat/title` | Générer un titre |
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| POST | `/api/chat` | SSE streaming chat (legacy — the frontend uses the NDJSON proxy) |
+| POST | `/api/chat/title` | Generate a title |
 
 ### Conversations (MongoDB)
-| Méthode | Route | Description |
-|---------|-------|-------------|
-| GET | `/api/conversations` | Liste des conversations |
-| POST | `/api/conversations` | Créer une conversation |
-| GET | `/api/conversations/[id]` | Récupérer une conversation |
-| PUT | `/api/conversations/[id]` | Mettre à jour |
-| DELETE | `/api/conversations/[id]` | Supprimer |
-| POST | `/api/conversations/[id]/save` | Ajouter des messages |
 
-## Variables d'environnement
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/api/conversations` | List conversations |
+| POST | `/api/conversations` | Create a conversation |
+| GET | `/api/conversations/[id]` | Fetch a conversation |
+| PUT | `/api/conversations/[id]` | Update a conversation |
+| DELETE | `/api/conversations/[id]` | Delete a conversation |
+| POST | `/api/conversations/[id]/save` | Append messages |
 
-Les variables Docker sont isolees des variables Next.js locales:
+## Environment variables
 
-- `.env.docker`: valeurs Docker non sensibles (versionnables)
-- `.env.docker.local`: secrets Docker locaux (non versionne)
-- `.env.docker.runtime`: genere automatiquement par `scripts/docker-up-auto.sh` (non versionne)
+Docker variables are kept separate from local Next.js variables:
 
-Preparation conseillee:
+- `.env.docker`: non-sensitive Docker values (safe to commit)
+- `.env.docker.local`: local Docker secrets (not committed)
+- `.env.docker.runtime`: auto-generated by `scripts/docker-up-auto.sh` (not committed)
+
+Recommended setup:
 
 ```bash
 cp .env.docker.local.example .env.docker.local
-# puis editer .env.docker.local avec tes valeurs privees
+# then edit .env.docker.local with your private values
 ```
 
-Pour que le conteneur puisse joindre Ollama installe sur l'hote Linux,
-Ollama doit ecouter sur `0.0.0.0` (pas seulement `127.0.0.1`):
+For the container to reach an Ollama instance installed on the Linux host,
+Ollama must listen on `0.0.0.0` (not just `127.0.0.1`):
 
 ```bash
 OLLAMA_HOST=0.0.0.0:11434 ollama serve
 ```
 
-Verification:
+Verify with:
 
 ```bash
 ss -ltn | grep 11434
 ```
 
-Tu dois voir `0.0.0.0:11434` ou `[::]:11434`.
+You should see `0.0.0.0:11434` or `[::]:11434`.
 
-| Variable | Description | Défaut |
-|----------|-------------|--------|
-| `OLLAMA_BASE_URL` | URL de l'API Ollama | `http://localhost:11434` |
-| `DEFAULT_MODEL` | Modèle par défaut | `llama3.2` |
-| `MONGODB_URI` | Connection string MongoDB | — |
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `OLLAMA_HOST` | Target of the `/api/ollama/[...path]` proxy | `http://127.0.0.1:11434` (`http://ollama:11434` in Compose) |
+| `OLLAMA_BASE_URL` | Ollama URL used by the granular routes | `http://localhost:11434` |
+| `DEFAULT_MODEL` | Default model | `llama3.2` |
+| `MONGODB_URI` | MongoDB connection string | — |
+
+> ⚠️ Use `127.0.0.1` rather than `localhost` for `OLLAMA_HOST` outside Docker (avoids IPv6 resolution failures).
 
 ## Tests
 
 ```bash
-npm run test          # Lancer les tests
-npm run test:coverage # Rapport de couverture
+pnpm test           # Run the tests
+pnpm test:coverage  # Coverage report
 ```
 
-Couverture actuelle : **19 tests**, composants UI et types validés.
+Current coverage: **36 tests** — UI components (sidebar, messages, streaming, theme, export, deletion) and type validation.
 
 ## CI/CD
 
-Le pipeline GitHub Actions (`Ollama CI`) s'exécute sur chaque push et pull request sur `master` et `development` :
+GitHub Actions workflows, run on push and pull request to `master` and `development`:
 
-1. **Lint** — ESLint
-2. **Test** — Vitest + couverture
-3. **Build Docker** — Image GHCR (push sur `master` uniquement)
-4. **Build Next.js** — Build de production
+- **Ollama CI** — lint → tests + coverage → typecheck (`tsc --noEmit`) → Next.js build → Docker image published to GHCR (push on `master` only). All Node jobs use pnpm with caching.
+- **CodeQL** — JavaScript/TypeScript security analysis (plus a weekly run on Mondays)
+- **Dependency Review** — dependency review on pull requests (fails on high+ severity vulnerabilities)
+- **Docker Security Scan** — image build + Trivy scan (SARIF uploaded to the Security tab, blocking gate on fixed critical CVEs, plus a filesystem dependency scan; weekly on Wednesdays)
 
-## Licence
+## Agent-assisted development
+
+The project is configured for Claude Code and opencode:
+
+- **`next-devtools` MCP** (`.mcp.json` / `opencode.json`) — real-time app errors, routes, and logs while running `pnpm dev`
+- **GitHub MCP** ([`github-mcp-server`](https://github.com/github/github-mcp-server), remote server) — reliable access to GitHub Actions runs, Dependabot alerts, and Dependency Review results when working on CI/CD and dependency updates
+- **7 specialized sub-agents** (`.claude/agents/`, `.opencode/agent/`) — `designer` (built-in official design system), `frontend-dev`, `backend-dev`, `code-reviewer`, `test-reviewer`, `ci-reviewer`, `docker-dev`
+
+See `AGENTS.md` for the project's conventions.
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for the supported versions and vulnerability reporting process.
+
+## License
 
 MIT

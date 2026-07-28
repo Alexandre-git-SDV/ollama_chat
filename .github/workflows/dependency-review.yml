@@ -1,0 +1,51 @@
+name: Dependency Review
+
+on:
+  pull_request:
+    branches: [master, development]
+    paths:
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v5.0.0
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: always
+          # Licences réelles connues (MIT/BSD/Apache-2.0) mais non détectées par
+          # ClearlyDefined (paquets npm) ou non exposées par l'API GitHub pour
+          # les Actions tierces ; exclues du check pour éviter le bruit "unknown
+          # license" sans désactiver le check globalement.
+          allow-dependencies-licenses: >-
+            pkg:npm/highlight.js,
+            pkg:npm/rehype-highlight,
+            pkg:npm/postcss,
+            pkg:npm/tinyrainbow,
+            pkg:githubactions/pnpm/action-setup,
+            pkg:githubactions/actions/checkout,
+            pkg:githubactions/actions/setup-node,
+            pkg:githubactions/actions/upload-artifact,
+            pkg:githubactions/docker/build-push-action,
+            pkg:githubactions/docker/login-action,
+            pkg:githubactions/docker/metadata-action,
+            pkg:githubactions/docker/setup-buildx-action

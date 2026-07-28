@@ -1,0 +1,111 @@
+name: Docker Security Scan
+
+on:
+  push:
+    branches: [master, development]
+    paths-ignore: &non-functional-paths
+      - '**.md'
+      - '.claude/**'
+      - 'docs/**'
+      - 'LICENSE'
+  pull_request:
+    branches: [master, development]
+    paths-ignore: *non-functional-paths
+  schedule:
+    # Hebdomadaire, décalé du CodeQL (lundi 03:00 UTC) pour étaler la charge
+    # runner : capte les CVE publiées sur l'image de base même sans push.
+    - cron: '0 4 * * 3'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  trivy-scan:
+    name: Build & Scan Docker Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build image (local, not pushed)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: false
+          load: true
+          tags: ollama-chat:scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Scan non bloquant : toutes les CRITICAL/HIGH remontent dans l'onglet
+      # Security via SARIF, y compris les vulnérabilités sans correctif.
+      - name: Run Trivy vulnerability scanner (SARIF, non bloquant)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ollama-chat:scan
+          format: sarif
+          output: trivy-image-results.sarif
+          severity: CRITICAL,HIGH
+          exit-code: '0'
+
+      - name: Upload Trivy scan results to Security tab
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: trivy-image-results.sarif
+          category: trivy-image
+
+      # Gate bloquante : échoue uniquement sur des CRITICAL déjà corrigées
+      # upstream (ignore-unfixed), pour ne pas bloquer la CI sur des CVE sans
+      # remède disponible.
+      - name: Run Trivy vulnerability scanner (gate bloquante)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ollama-chat:scan
+          format: table
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+  trivy-fs:
+    name: Scan Filesystem Dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Scan léger du dépôt (pnpm-lock.yaml inclus) : détecte les
+      # vulnérabilités connues dans les dépendances sans build Docker.
+      - name: Run Trivy filesystem scanner
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-fs-results.sarif
+          severity: CRITICAL,HIGH
+          exit-code: '0'
+
+      - name: Upload Trivy filesystem scan results to Security tab
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: trivy-fs-results.sarif
+          category: trivy-fs
