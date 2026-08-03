@@ -8,8 +8,8 @@ const STORAGE_KEY = 'ollama-chat-conversations';
 const ACTIVE_KEY = 'ollama-chat-active';
 const USER_ID_KEY = 'ollama-chat-user-id';
 
-function uid() {
-  return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+function uid(): string {
+  return crypto.randomUUID();
 }
 
 function getUserId(): string {
